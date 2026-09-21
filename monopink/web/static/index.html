@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MonopInk</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='5' width='26' height='22' rx='3' fill='%23f3f1ea' stroke='%231d1d1f' stroke-width='2'/%3E%3Crect x='7' y='9' width='11' height='14' fill='%231d1d1f'/%3E%3Crect x='20' y='9' width='5' height='14' fill='%23c3272e'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="5" width="26" height="22" rx="3" class="logo-frame"/><rect x="7" y="9" width="11" height="14" class="logo-ink"/><rect x="20" y="9" width="5" height="14" class="logo-red"/></svg>
+    <div>
+      <div class="brand-name">MonopInk</div>
+      <div class="brand-tag" data-i18n="app.tagline"></div>
+    </div>
+  </div>
+  <div class="top-right">
+    <span class="sim-badge" id="simBadge" hidden data-i18n="sim.badge" data-i18n-title="sim.title"></span>
+    <button class="status-chip" id="chipPico" data-goto="pico"><span class="dot"></span><span data-i18n="chip.pico"></span><span class="chip-val" id="chipPicoVal"></span></button>
+    <button class="status-chip" id="chipLabel" data-goto="label"><span class="dot"></span><span data-i18n="chip.label"></span><span class="chip-val" id="chipLabelVal"></span></button>
+    <div class="seg lang-switch" role="group" aria-label="Language">
+      <button data-lang="en">EN</button><button data-lang="fr">FR</button>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="steps" id="steps">
+    <button data-view="overview"><span class="num">1</span><span data-i18n="nav.overview"></span></button>
+    <button data-view="wiring"><span class="num">2</span><span data-i18n="nav.wiring"></span></button>
+    <button data-view="pico"><span class="num">3</span><span data-i18n="nav.pico"></span></button>
+    <button data-view="label"><span class="num">4</span><span data-i18n="nav.label"></span></button>
+    <button data-view="picture"><span class="num">5</span><span data-i18n="nav.picture"></span></button>
+    <button data-view="tools"><span class="num">6</span><span data-i18n="nav.tools"></span></button>
+  </nav>
+
+  <main id="main">
+    <!-- ============================================================ OVERVIEW -->
+    <section class="view" id="view-overview">
+      <h1 data-i18n="ov.title"></h1>
+      <p class="lead" data-i18n-html="ov.lead"></p>
+
+      <div class="flow" aria-hidden="true">
+        <div class="flow-node"><b data-i18n="ov.how.pc"></b><span data-i18n="ov.how.pc.sub"></span></div>
+        <div class="flow-link"><span data-i18n="ov.how.usb"></span></div>
+        <div class="flow-node"><b data-i18n="ov.how.pico"></b><span data-i18n="ov.how.pico.sub"></span></div>
+        <div class="flow-link"><span data-i18n="ov.how.dbg"></span></div>
+        <div class="flow-node"><b data-i18n="ov.how.cc"></b><span data-i18n="ov.how.cc.sub"></span></div>
+        <div class="flow-link"><span data-i18n="ov.how.spi"></span></div>
+        <div class="flow-node epd"><b data-i18n="ov.how.epd"></b><span data-i18n="ov.how.epd.sub"></span></div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <h2 data-i18n="ov.need"></h2>
+          <ul class="ticks">
+            <li data-i18n-html="ov.need.label"></li>
+            <li data-i18n-html="ov.need.pico"></li>
+            <li data-i18n-html="ov.need.usb"></li>
+            <li data-i18n-html="ov.need.wires"></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h2 data-i18n="ov.steps"></h2>
+          <ol class="numbered">
+            <li data-i18n-html="ov.step1"></li>
+            <li data-i18n-html="ov.step2"></li>
+            <li data-i18n-html="ov.step3"></li>
+            <li data-i18n-html="ov.step4"></li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="callout danger">
+        <h3 data-i18n="ov.warn.title"></h3>
+        <ul>
+          <li data-i18n-html="ov.warn.erase"></li>
+          <li data-i18n-html="ov.warn.dcoupl"></li>
+          <li data-i18n-html="ov.warn.batt"></li>
+          <li data-i18n-html="ov.warn.own"></li>
+        </ul>
+      </div>
+
+      <div class="card compact">
+        <h2 data-i18n="ov.check"></h2>
+        <div id="envCheck" class="checklist"></div>
+      </div>
+
+      <div class="actions"><button class="btn primary" data-goto="wiring" data-i18n="ov.start"></button></div>
+    </section>
+
+    <!-- ============================================================ WIRING -->
+    <section class="view" id="view-wiring" hidden>
+      <h1 data-i18n="wi.title"></h1>
+      <p class="lead" data-i18n="wi.lead"></p>
+
+      <div class="wiring">
+        <div class="card pico-card">
+          <div class="role-picker">
+            <div class="muted small" data-i18n="wi.assign"></div>
+            <div class="roles" id="roles"></div>
+          </div>
+          <div id="picoSvg" class="pico-svg"></div>
+        </div>
+
+        <div class="wiring-side">
+          <div class="card">
+            <div class="pin-form" id="pinForm"></div>
+            <label class="check"><input type="checkbox" id="singleDD"><span data-i18n="wi.single"></span></label>
+            <p class="muted small" data-i18n="wi.single.help"></p>
+            <div class="form-error" id="pinError" hidden></div>
+            <div class="row gap">
+              <button class="btn ghost" id="pinDefaults" data-i18n="wi.defaults"></button>
+              <span class="saved-note" id="pinSaved" hidden data-i18n="wi.saved"></span>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 data-i18n="wi.notes"></h2>
+            <ul class="ticks">
+              <li data-i18n="wi.note.short"></li>
+              <li data-i18n="wi.note.batt"></li>
+              <li data-i18n-html="wi.note.dcoupl"></li>
+              <li data-i18n="wi.note.swap"></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="wi.table"></h2>
+        <div class="table-wrap"><table class="conn-table" id="connTable"></table></div>
+      </div>
+
+      <div class="actions"><button class="btn primary" data-goto="pico" data-i18n="common.next"></button></div>
+    </section>
+
+    <!-- ============================================================ PICO -->
+    <section class="view" id="view-pico" hidden>
+      <h1 data-i18n="pi.title"></h1>
+      <p class="lead" data-i18n="pi.lead"></p>
+
+      <div class="card status-card" id="picoStatusCard">
+        <div class="status-head">
+          <h2 data-i18n="pi.status"></h2>
+          <button class="btn small ghost" id="picoRefresh" data-i18n="common.refresh"></button>
+        </div>
+        <div id="picoStatus" class="status-body"></div>
+      </div>
+
+      <div class="callout action" id="bootselHelp" hidden>
+        <h3 data-i18n="pi.bootsel.title"></h3>
+        <div class="bootsel">
+          <svg viewBox="0 0 120 80" class="bootsel-art" aria-hidden="true">
+            <rect x="30" y="10" width="60" height="64" rx="4" class="art-board"/>
+            <rect x="50" y="2" width="20" height="12" rx="2" class="art-usb"/>
+            <circle cx="46" cy="28" r="6" class="art-button"/>
+            <path d="M18 40 q10 -14 22 -12" class="art-arrow"/>
+            <text x="4" y="52" class="art-text">BOOTSEL</text>
+          </svg>
+          <ol class="numbered">
+            <li data-i18n="pi.bootsel.1"></li>
+            <li data-i18n-html="pi.bootsel.2"></li>
+            <li data-i18n="pi.bootsel.3"></li>
+            <li data-i18n="pi.bootsel.4"></li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row gap wrap">
+          <button class="btn primary" id="picoInstall" data-needs-idle data-i18n="pi.install"></button>
+          <button class="btn" id="picoApply" data-needs-idle data-i18n="pi.apply" hidden></button>
+        </div>
+        <p class="muted small" id="picoPinsLine"></p>
+      </div>
+
+      <div class="actions"><button class="btn primary" data-goto="label" data-i18n="common.next"></button></div>
+    </section>
+
+    <!-- ============================================================ LABEL -->
+    <section class="view" id="view-label" hidden>
+      <h1 data-i18n="la.title"></h1>
+      <p class="lead" data-i18n="la.lead"></p>
+
+      <div class="card">
+        <div class="row gap wrap">
+          <button class="btn primary" id="labelTest" data-needs-idle data-i18n="la.test"></button>
+        </div>
+        <div id="labelResult" class="kv" hidden></div>
+      </div>
+
+      <div class="callout danger" id="eraseBox" hidden>
+        <h3 data-i18n="la.erase.title"></h3>
+        <p data-i18n-html="la.erase.text"></p>
+        <label class="check"><input type="checkbox" id="eraseConfirm"><span data-i18n="la.erase.confirm"></span></label>
+        <div class="row gap"><button class="btn danger" id="eraseGo" data-needs-idle disabled data-i18n="la.erase.go"></button></div>
+      </div>
+
+      <div class="card" id="installBox" hidden>
+        <p class="muted small" data-i18n="la.install.help"></p>
+        <button class="btn primary" id="labelInstall" data-needs-idle data-i18n="la.install"></button>
+      </div>
+
+      <div class="card" id="timelineBox" hidden>
+        <h2 data-i18n="la.timeline"></h2>
+        <ol class="timeline" id="timeline"></ol>
+        <div class="callout ok small-callout" id="labelOk" hidden data-i18n="la.ok"></div>
+        <div class="callout warn small-callout" id="labelSuspicious" hidden data-i18n="la.suspicious"></div>
+      </div>
+
+      <div class="actions"><button class="btn primary" data-goto="picture" data-i18n="common.next"></button></div>
+    </section>
+
+    <!-- ============================================================ PICTURE -->
+    <section class="view" id="view-picture" hidden>
+      <h1 data-i18n="pc.title"></h1>
+      <p class="lead" data-i18n="pc.lead"></p>
+
+      <div class="picture">
+        <div class="pic-left">
+          <label class="drop" id="drop">
+            <input type="file" id="fileInput" accept="image/*" hidden>
+            <img id="sourceThumb" alt="" hidden>
+            <span class="drop-text"><span data-i18n-html="pc.drop"></span><small data-i18n="pc.drop.sub"></small></span>
+          </label>
+          <div class="row gap between">
+            <span class="muted small ellipsis" id="sourceName"></span>
+            <button class="btn small ghost" id="useTestCard" data-i18n="pc.testcard"></button>
+          </div>
+
+          <div class="card adjust">
+            <h2 data-i18n="pc.adjust"></h2>
+            <div class="field">
+              <label data-i18n="pc.orientation"></label>
+              <div class="seg" data-param="orientation">
+                <button data-value="portrait" data-i18n="pc.portrait"></button>
+                <button data-value="landscape" data-i18n="pc.landscape"></button>
+              </div>
+            </div>
+            <div class="field">
+              <label data-i18n="pc.fit"></label>
+              <div class="seg" data-param="fit">
+                <button data-value="cover" data-i18n="pc.fit.cover"></button>
+                <button data-value="contain" data-i18n="pc.fit.contain"></button>
+                <button data-value="stretch" data-i18n="pc.fit.stretch"></button>
+              </div>
+            </div>
+            <div class="field">
+              <label data-i18n="pc.mode"></label>
+              <div class="seg tall" data-param="mode">
+                <button data-value="dither"><span data-i18n="pc.mode.dither"></span><small data-i18n="pc.mode.dither.sub"></small></button>
+                <button data-value="threshold"><span data-i18n="pc.mode.threshold"></span><small data-i18n="pc.mode.threshold.sub"></small></button>
+                <button data-value="levels"><span data-i18n="pc.mode.levels"></span><small data-i18n="pc.mode.levels.sub"></small></button>
+              </div>
+            </div>
+            <label class="check"><input type="checkbox" data-param="use_red"><span data-i18n="pc.red"></span></label>
+            <div class="slider" data-show="use_red">
+              <label><span data-i18n="pc.redsens"></span><output></output></label>
+              <input type="range" min="0" max="100" data-param="red_sensitivity">
+            </div>
+            <div class="slider">
+              <label><span data-i18n="pc.brightness"></span><output></output></label>
+              <input type="range" min="-100" max="100" data-param="brightness">
+            </div>
+            <div class="slider">
+              <label><span data-i18n="pc.contrast"></span><output></output></label>
+              <input type="range" min="-100" max="100" data-param="contrast">
+            </div>
+            <div class="slider" data-show="levels">
+              <label><span data-i18n="pc.black"></span><output></output></label>
+              <input type="range" min="0" max="255" data-param="black_level">
+            </div>
+            <div class="slider" data-show="levels">
+              <label><span data-i18n="pc.white"></span><output></output></label>
+              <input type="range" min="0" max="255" data-param="white_level">
+            </div>
+            <div class="field" data-show="contain">
+              <label data-i18n="pc.background"></label>
+              <div class="seg" data-param="background">
+                <button data-value="white" data-i18n="pc.bg.white"></button>
+                <button data-value="black" data-i18n="pc.bg.black"></button>
+                <button data-value="red" data-i18n="pc.bg.red"></button>
+              </div>
+            </div>
+            <label class="check"><input type="checkbox" data-param="invert"><span data-i18n="pc.invert"></span></label>
+            <label class="check"><input type="checkbox" data-param="sharp"><span data-i18n="pc.sharp"></span></label>
+            <label class="check" data-show="use_red"><input type="checkbox" data-param="fill_enclosed"><span data-i18n="pc.fill"></span></label>
+            <p class="muted small" data-show="use_red" data-i18n="pc.fill.help"></p>
+            <button class="btn small ghost" id="resetAdjust" data-i18n="pc.resetadj"></button>
+          </div>
+        </div>
+
+        <div class="pic-right">
+          <div class="preview-head">
+            <h2 data-i18n="pc.preview"></h2>
+            <label class="check inline"><input type="checkbox" id="zoom" checked><span data-i18n="pc.zoom"></span></label>
+          </div>
+          <div class="label-mock" id="labelMock">
+            <div class="label-screen"><img id="preview" alt=""><div class="spinner" id="previewSpin" hidden></div></div>
+            <div class="label-foot"></div>
+          </div>
+          <div class="empty-note muted" id="noImage" data-i18n="pc.noimage"></div>
+          <div class="stats" id="stats"></div>
+          <div class="row gap wrap center">
+            <button class="btn primary big" id="sendImage" data-needs-idle data-i18n="pc.send"></button>
+            <div class="menu">
+              <button class="btn" id="dlBtn"><span data-i18n="pc.download"></span> ▾</button>
+              <div class="menu-list" id="dlMenu" hidden>
+                <button data-fmt="png" data-i18n="pc.dl.png"></button>
+                <button data-fmt="hex" data-i18n="pc.dl.hex"></button>
+                <button data-fmt="bin" data-i18n="pc.dl.bin"></button>
+                <button data-fmt="c" data-i18n="pc.dl.c"></button>
+              </div>
+            </div>
+          </div>
+          <div class="current">
+            <div class="muted small" data-i18n="pc.current"></div>
+            <img id="currentImg" alt="" hidden>
+            <div class="muted small" id="currentNone" data-i18n="pc.none"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ TOOLS -->
+    <section class="view" id="view-tools" hidden>
+      <h1 data-i18n="to.title"></h1>
+
+      <div class="grid2">
+        <div class="card">
+          <h2 data-i18n="to.label"></h2>
+          <div class="tool"><button class="btn" id="toolRun" data-needs-idle data-i18n="to.run"></button><span class="muted small" data-i18n="to.run.help"></span></div>
+          <div class="tool"><button class="btn" id="toolBoot" data-needs-idle data-i18n="to.boot"></button><span class="muted small" data-i18n="to.boot.help"></span></div>
+          <div class="tool"><button class="btn" id="toolReset" data-needs-idle data-i18n="to.reset"></button><span class="muted small" data-i18n="to.reset.help"></span></div>
+          <div class="tool"><button class="btn" id="toolDump" data-needs-idle data-i18n="to.dump"></button><span class="muted small" data-i18n="to.dump.help"></span></div>
+        </div>
+        <div class="card">
+          <h2 data-i18n="to.calib"></h2>
+          <p class="muted small" data-i18n="to.calib.help"></p>
+          <label class="check"><input type="checkbox" id="calRot"><span data-i18n="to.rot"></span></label>
+          <label class="check"><input type="checkbox" id="calMirror"><span data-i18n="to.mirror"></span></label>
+          <button class="btn small" id="calTest" data-needs-idle data-i18n="pc.testcard"></button>
+        </div>
+        <div class="card">
+          <h2 data-i18n="to.conn"></h2>
+          <div class="field">
+            <label for="portSelect" data-i18n="to.port"></label>
+            <div class="row gap">
+              <select id="portSelect"></select>
+              <button class="btn small ghost" id="portRefresh" data-i18n="common.refresh"></button>
+            </div>
+          </div>
+          <div class="field">
+            <label data-i18n="to.lang"></label>
+            <div class="seg lang-switch"><button data-lang="en">English</button><button data-lang="fr">Français</button></div>
+          </div>
+        </div>
+        <div class="card" id="simCard" hidden>
+          <h2 data-i18n="to.sim"></h2>
+          <label class="check"><input type="checkbox" id="simConnected"><span data-i18n="to.sim.connected"></span></label>
+          <label class="check"><input type="checkbox" id="simWrong"><span data-i18n="to.sim.wrongpin"></span></label>
+          <button class="btn small" id="simReset" data-i18n="to.sim.reset"></button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="to.hex"></h2>
+        <p class="muted small" data-i18n="to.hex.help"></p>
+        <div class="row gap wrap">
+          <label class="btn small"><input type="file" id="hexFile" accept=".hex,.ihx" hidden><span data-i18n="to.hex.choose"></span></label>
+          <span class="muted small" id="hexName"></span>
+        </div>
+        <label class="check"><input type="checkbox" id="hexErase"><span data-i18n="to.hex.erase"></span></label>
+        <button class="btn" id="hexGo" data-needs-idle disabled data-i18n="to.hex.go"></button>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="to.cli"></h2>
+        <p class="muted small" data-i18n="to.cli.help"></p>
+        <pre class="code">./monopink.sh doctor                 # check the installation
+./monopink.sh ports                  # serial ports, BOOTSEL drives, probes
+./monopink.sh pico-flash --rst 3 --dc 4 --dd-in 6 --dd-out 7
+./monopink.sh info                   # chip ID, debug lock, firmware
+./monopink.sh install --erase        # erase the SES firmware, install MonopInk
+./monopink.sh image photo.jpg        # convert + send (see --help for options)
+./monopink.sh export photo.jpg --png preview.png --hex label.hex
+./monopink.sh flash-hex blink.hex    # any firmware (--erase on a locked chip)
+./monopink.sh boot-test              # autonomous start, as on batteries
+./monopink.sh --sim ...              # any command, simulated hardware</pre>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="to.about"></h2>
+        <p class="muted small" id="aboutText"></p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============================================================ CONSOLE -->
+<aside class="console" id="console">
+  <div class="console-head" id="consoleHead">
+    <span class="console-title" data-i18n="con.title"></span>
+    <span class="console-job" id="consoleJob"></span>
+    <div class="progress" id="progress" hidden><div class="bar" id="progressBar"></div></div>
+    <button class="btn small ghost" id="cancelJob" hidden data-i18n="common.cancel"></button>
+    <button class="icon-btn" id="consoleToggle" aria-label="toggle">▴</button>
+  </div>
+  <div class="console-body" id="consoleBody"><div class="muted" data-i18n="con.idle"></div></div>
+</aside>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="/static/i18n.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
