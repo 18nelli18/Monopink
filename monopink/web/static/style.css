@@ -232,7 +232,7 @@ label.check.inline { display: inline-flex; margin: 0; }
 label.check input { margin-top: .22rem; accent-color: var(--red); }
 .field { margin: .8rem 0; }
 .field > label { display: block; font-size: .8rem; font-weight: 650; color: var(--muted); margin-bottom: .35rem; text-transform: uppercase; letter-spacing: .04em; }
-select, input[type=number] {
+select, input[type=number], input[type=url] {
   font: 500 .9rem var(--sans); color: var(--ink); background: var(--surface);
   border: 1px solid var(--line-2); border-radius: 8px; padding: .42rem .6rem;
 }
@@ -308,6 +308,8 @@ select { min-width: 12rem; }
 
 .kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .45rem 1.2rem; margin-top: 1rem; font-size: .92rem; }
 .kv dt, .kv .k { color: var(--muted); }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+input.grow { flex: 1; min-width: 0; }
 .pill { display: inline-block; border-radius: 6px; padding: .05rem .45rem; font-size: .82rem; font-weight: 650; }
 .pill.ok { background: var(--ok-soft); color: var(--ok); }
 .pill.bad { background: var(--red-soft); color: var(--red); }

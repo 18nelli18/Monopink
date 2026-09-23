@@ -304,7 +304,8 @@ class TestSimWorkflow(unittest.TestCase):
         self.assertEqual(cm.exception.key, "tag.locked_need_erase")
 
         res = ops.tag_install(self.env, self.cfg, rep, erase=True)
-        self.assertEqual(res["programmed"], 14)
+        # code pages + NFC state page + the 11 picture pages
+        self.assertEqual(res["programmed"], len(ops.firmware_pages()) + 11)
         self.assertTrue(res["run"]["finished"])
         self.assertIn(L.ST_REFRESHING, rep.states)
 
@@ -454,6 +455,30 @@ class TestWebServer(unittest.TestCase):
         for fmt in ("png", "hex", "bin", "c"):
             code, _ = self.req(f"/api/image/export?fmt={fmt}")
             self.assertEqual(code, 200, fmt)
+
+    def test_nfc_page_and_jobs(self):
+        code, body = self.req("/nfc/")
+        self.assertEqual(code, 200)
+        self.assertIn(b"nfc.js", body)
+        for f in ("nfc.js", "codec.js", "convert.js", "app.css"):
+            self.assertEqual(self.req("/nfc/" + f)[0], 200, f)
+        self.assertEqual(self.req("/nfc/../../monopink/cli.py")[0], 404)
+        self.assertEqual(self.req("/nfc/%2e%2e/%2e%2e/monopink/cli.py")[0], 404)
+        code, body = self.req("/api/config", {"nfc_url": "http://example.com/nfc/"})
+        self.assertEqual(code, 400)
+        code, body = self.req("/api/config", {"nfc_url": "https://example.github.io/MonopInk/nfc/"})
+        self.assertEqual(code, 200)
+        self.assertEqual(json.loads(body)["config"]["nfc_url"], "https://example.github.io/MonopInk/nfc/")
+
+        self.assertEqual(self.job("pico_flash")["status"], "done")
+        self.assertEqual(self.job("tag_install", {"erase": True})["status"], "done")
+        snap = self.job("nfc_info")
+        self.assertEqual(snap["status"], "done", snap)
+        self.assertEqual(snap["result"]["wake"], "fd")
+        self.assertEqual(self.req("/api/image/test-pattern", {"orientation": "portrait"})[0], 200)
+        snap = self.job("nfc_send", {"params": {"mode": "threshold", "fit": "stretch"}})
+        self.assertEqual(snap["status"], "done", snap)
+        self.assertEqual(snap["result"]["parts"], 1)
 
     def test_bad_upload(self):
         code, body = self.req("/api/image/upload", raw=b"not an image", headers={"X-Lang": "fr"})

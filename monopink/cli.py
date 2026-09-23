@@ -167,6 +167,11 @@ def build_parser():
     p = sub.add_parser("dump", help="save the whole flash of an unlocked label")
     p.add_argument("out")
 
+    sub.add_parser("nfc-info", help="diagnose the label's NFC chip")
+    p = sub.add_parser("nfc-send", help="test the NFC upload path, the Pico playing the phone")
+    p.add_argument("file")
+    add_image_args(p)
+
     p = sub.add_parser("flash-hex", help="write any Intel HEX firmware (blink, angrymew...)")
     p.add_argument("file")
     p.add_argument("--erase", action="store_true", help="mass erase first (needed on a locked chip)")
@@ -312,7 +317,14 @@ def main(argv=None):
             ops.tag_install(env, cfg, rep, erase=erase, run=not args.no_run)
             return 0
 
-        if cmd in ("image", "export", "test-pattern"):
+        if cmd == "nfc-info":
+            import json
+            d = ops.nfc_info(env, cfg, rep)
+            d.pop("raw", None)
+            print(json.dumps(d, indent=2))
+            return 0
+
+        if cmd in ("image", "export", "test-pattern", "nfc-send"):
             from .image import open_image, convert, test_pattern, ImageParams
             if cmd == "test-pattern":
                 conv = convert(test_pattern(), ImageParams(mode="threshold", fit="stretch"))
@@ -323,6 +335,10 @@ def main(argv=None):
                 conv = convert(src, params)
             rep.emit("ok", t("image.converted", lang, **conv.stats()))
             disp = cfg.get("display", {})
+            if cmd == "nfc-send":
+                ops.nfc_send(env, cfg, rep, conv.panel_pixels(disp.get("rotate180", False),
+                                                               disp.get("mirror", False)))
+                return 0
             bw, red = conv.planes(disp.get("rotate180", False), disp.get("mirror", False))
             outputs = []
             if cmd != "test-pattern":

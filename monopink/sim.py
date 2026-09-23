@@ -26,6 +26,10 @@ class SimChip:
         self.connected = True
         self.chip_id = 0x8104
         self.displayed = None       # image planes last "shown"
+        from .nfclabel import LabelModel
+        self.nfc = LabelModel()     # the NTAG + firmware NFC protocol
+        self.nfc_fd_pullup = True   # board pull-up on FD (wake-up mode 1)
+        self.nfc_result = 0
         self.power_up()
         self.reset()
 
@@ -67,6 +71,12 @@ class SimChip:
         mb = self.xdata
         base = L.MAILBOX_ADDR
         hold = self.run_mode != "normal"
+        if self.run_mode == "nfcdiag":
+            mb[base + 4] = L.ST_NFC_DIAG_DONE
+            return
+        if self.run_mode == "nfctest" and self.nfc_result != 2:
+            mb[base + 4] = L.ST_NFC_DONE
+            return
         if t < 0.3:
             st = L.ST_BOOT
         elif t < 1.3:
@@ -79,6 +89,8 @@ class SimChip:
             st = L.ST_REFRESH_DONE
         else:
             st = L.ST_IDLE_HOLD if hold else L.ST_EPD_OFF
+            if self.run_mode == "nfctest":
+                st = L.ST_NFC_DONE
         mb[base + 4] = st
         mb[base + 5] = 0
         mb[base + 10] = 0x10
@@ -104,11 +116,45 @@ class SimChip:
             # boot from reset; a later resume continues where it stopped
             base = L.MAILBOX_ADDR
             magic = bytes(self.xdata[base:base + 4])
-            self.run_mode = {L.MAILBOX_HOLD: "watched", L.MAILBOX_BOOT_TEST: "test"}.get(magic, "normal")
+            self.run_mode = {L.MAILBOX_HOLD: "watched", L.MAILBOX_BOOT_TEST: "test",
+                             L.MAILBOX_NFC_DIAG: "nfcdiag", L.MAILBOX_NFC_TEST: "nfctest"}.get(magic, "normal")
+            length = self.xdata[base + 12] | (self.xdata[base + 13] << 8)
             self.xdata[base:base + 4] = bytes(4)          # firmware clears it
             self.xdata[base + 14] = (self.xdata[base + 14] + 1) & 0xFF
             self.run_started = time.time()
             self.pc = 0x0100
+            if self.run_mode == "nfcdiag":
+                self._nfc_diag()
+            elif self.run_mode == "nfctest":
+                self._nfc_test(length)
+
+    # NFC ("MPNF" / "MPNW", firmware >= 1.3) -----------------------------
+    def _nfc_diag(self):
+        d = bytearray(b"\xee" * L.NFCDIAG_SIZE)
+        d[0] = 0x01                                  # answers, 1k variant
+        d[1] = d[2] = 1 if self.nfc_fd_pullup else 0
+        d[3] = 8
+        d[4] = 1 if self.nfc_fd_pullup else 2
+        d[8:16] = bytes([0x01, 0x00, 0x00, 0x48, 0x08, 0x01, 0x00, 0x00])   # session regs
+        d[0x10:0x20] = bytes([0x04, 0xA1, 0xB2, 0xC3, 0xD4, 0xE5, 0xF6, 0x80,
+                              0x00, 0x00, 0x00, 0x00, 0xE1, 0x10, 0x6D, 0x00])
+        d[0x20:0x30] = bytes(8) + bytes([0, 0, 0, 0, 0, 0, 0, 0xFF])       # dyn. lock, AUTH0
+        d[0x30:0x40] = bytes([0x00, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0, 0x07, 0, 0, 0])
+        d[0x40:0x50] = bytes([0x01, 0x00, 0xF8, 0x48, 0x08, 0x01, 0x00, 0x00]) + bytes(8)
+        self.nfc.prepare()
+        d[0x50:0x90] = self.nfc.area[0:64]
+        self.xdata[L.NFCDIAG_ADDR:L.NFCDIAG_ADDR + L.NFCDIAG_SIZE] = d
+
+    def _nfc_test(self, length):
+        area = bytes(self.xdata[L.XRAM_BUF_B:L.XRAM_BUF_B + min(length, 872)])
+        self.nfc_result = self.nfc.phone_write(area)
+        self.xdata[L.MAILBOX_ADDR + 11] = self.nfc_result
+        self.xdata[L.XRAM_NFC_STATUS:L.XRAM_NFC_STATUS + 16] = self.nfc.status()
+        self.xdata[L.XRAM_NFC_INFO:L.XRAM_NFC_INFO + 16] = bytes(16)
+        if self.nfc_result == 2:                     # decoded: goes to the picture area
+            bw, red = self.nfc.planes
+            self.flash[L.IMG_BW_ADDR:L.IMG_BW_ADDR + L.PLANE_SIZE] = bw
+            self.flash[L.IMG_R_ADDR:L.IMG_R_ADDR + L.PLANE_SIZE] = red
 
     def _flash_routine(self):
         r = self.xdata[L.XDATA_ROUTINE:L.XDATA_ROUTINE + 64]

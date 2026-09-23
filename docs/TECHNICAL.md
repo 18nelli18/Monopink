@@ -154,7 +154,9 @@ Flash layout (also in `firmware/src/layout.h` and `monopink/layout.py`):
 
 | Address | Content |
 |---|---|
-| `0x0000–0x4FEF` | code (~1.2 KB used) |
+| `0x0000–0x2FFF` | code (~10.4 KB used in 1.3; the build fails above `0x3000`) |
+| `0x3000–0x33FF` | NFC receive state (written once per picture received over NFC) |
+| `0x3400–0x4BFF` | NFC staging area for the compressed stream (6 KB) |
 | `0x4FF0–0x4FFF` | info block: `MONOPINK`, version major/minor, layout version, width, height |
 | `0x5000–0x65F7` | black/white plane, 5624 bytes |
 | `0x6600–0x7BF7` | red plane, 5624 bytes |
@@ -168,8 +170,18 @@ low, 100 ms; SPI on, CS/DC high, hardware reset, wait BUSY; booster soft-start
 `06 17 17 17`, power on `04` (wait BUSY, ~50 ms), panel setting `00 0F 0D` (KWR
 mode), resolution `61 98 01 28`, VCOM/data interval `50 77`, planes `10` + `13`,
 refresh `12` (wait BUSY, ~20 s), power off `02`, deep sleep `07 A5`, back to the
-held-off state, NFC/SPI-flash supply off, then PM3 forever (only a reset wakes
-the chip; the debug interface resets it anyway).
+held-off state, NFC/SPI-flash supply off. Firmware 1.3 then formats the NFC
+chip if needed, publishes its status record, and sleeps until a phone comes
+(PM3 woken by the NFC field-detect line, or PM2 with a 2 s sleep timer when that
+line has no pull-up); see [NFC.md](NFC.md). Up to 1.2 the chip stayed in PM3
+until the next reset.
+
+Debug-port modes, requested through the RAM mailbox at `0xF800` before a
+reset: `MPHD` (watched run, stay awake), `MPNR` (autonomous boot test),
+`MPNF` (NFC chip dump, 1.3+), `MPNW` (process an NDEF area placed in RAM as if a
+phone had written it, 1.3+). The C variables live in XDATA `0xFD00–0xFDA1`:
+the CC2510F32 loses `0xFDA2–0xFEFF` in PM2/PM3, and the link is limited to
+that size.
 
 Only **one** refresh per boot (the angrymew example cleared the screen first,
 i.e. two ~15 s refreshes) and the panel is never left powered.
@@ -214,11 +226,12 @@ which stops other web sites from driving the hardware through your browser.
 | `GET /api/state` | version, settings, dependencies, current job |
 | `GET /api/pico/status` | BOOTSEL drive / probe kind / stored pins |
 | `GET /api/ports` | serial ports and drives |
-| `POST /api/config` | pins, port, language, calibration |
-| `POST /api/jobs` | `pico_flash`, `pico_pins`, `tag_info`, `tag_install`, `tag_image`, `tag_run`, `tag_reset`, `tag_dump` |
+| `POST /api/config` | pins, port, language, calibration, phone page address (`nfc_url`, https only) |
+| `POST /api/jobs` | `pico_flash`, `pico_pins`, `tag_info`, `tag_install`, `tag_image`, `tag_run`, `tag_reset`, `tag_dump`, `nfc_info`, `nfc_send` |
 | `GET /api/jobs/<id>?since=n` / `POST …/cancel` | job log / cancel |
 | `POST /api/image/upload` (raw body) · `/preview` · `/test-pattern` | picture |
 | `GET /api/image/export?fmt=png\|hex\|bin\|c` · `/api/label/preview` · `/api/label/dump` | files |
+| `GET /nfc/` | the phone page (`docs/nfc/`), for a preview on the computer |
 
 ## 7. Findings on real hardware
 

@@ -33,7 +33,8 @@
     <button data-view="pico"><span class="num">3</span><span data-i18n="nav.pico"></span></button>
     <button data-view="label"><span class="num">4</span><span data-i18n="nav.label"></span></button>
     <button data-view="picture"><span class="num">5</span><span data-i18n="nav.picture"></span></button>
-    <button data-view="tools"><span class="num">6</span><span data-i18n="nav.tools"></span></button>
+    <button data-view="nfc"><span class="num">6</span><span data-i18n="nav.nfc"></span></button>
+    <button data-view="tools"><span class="num">7</span><span data-i18n="nav.tools"></span></button>
   </nav>
 
   <main id="main">
@@ -325,6 +326,43 @@
       </div>
     </section>
 
+    <!-- ============================================================ NFC -->
+    <section class="view" id="view-nfc" hidden>
+      <h1 data-i18n="nf.title"></h1>
+      <p class="lead" data-i18n="nf.lead"></p>
+
+      <div class="grid2">
+        <div class="card">
+          <h2 data-i18n="nf.phone"></h2>
+          <p class="muted small" data-i18n-html="nf.phone.help"></p>
+          <div class="field">
+            <label for="nfcUrl" data-i18n="nf.url"></label>
+            <div class="row gap">
+              <input type="url" id="nfcUrl" class="grow" placeholder="https://…/nfc/" spellcheck="false">
+              <button class="btn small" id="nfcUrlSave" data-i18n="common.save"></button>
+            </div>
+          </div>
+          <div class="row gap wrap">
+            <a class="btn primary" id="nfcOpen" target="_blank" rel="noopener" hidden data-i18n="nf.open"></a>
+            <a class="btn ghost" id="nfcPreview" href="/nfc/" target="_blank" rel="noopener" data-i18n="nf.preview"></a>
+          </div>
+        </div>
+        <div class="card">
+          <h2 data-i18n="nf.check"></h2>
+          <div class="tool"><button class="btn" id="nfcInfo" data-needs-idle data-i18n="nf.info"></button><span class="muted small" data-i18n="nf.info.help"></span></div>
+          <dl class="kv" id="nfcResult" hidden></dl>
+          <div class="tool"><button class="btn" id="nfcSend" data-needs-idle data-i18n="nf.send"></button><span class="muted small" data-i18n="nf.send.help"></span></div>
+          <div class="tool"><button class="btn" id="nfcArm" data-needs-idle data-i18n="nf.arm"></button><span class="muted small" data-i18n="nf.arm.help"></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 data-i18n="nf.how"></h2>
+        <ol class="numbered" data-i18n-html="nf.how.list"></ol>
+        <p class="muted small" data-i18n-html="nf.how.note"></p>
+      </div>
+    </section>
+
     <!-- ============================================================ TOOLS -->
     <section class="view" id="view-tools" hidden>
       <h1 data-i18n="to.title"></h1>
@@ -389,6 +427,8 @@
 ./monopink.sh export photo.jpg --png preview.png --hex label.hex
 ./monopink.sh flash-hex blink.hex    # any firmware (--erase on a locked chip)
 ./monopink.sh boot-test              # autonomous start, as on batteries
+./monopink.sh nfc-info               # NFC chip diagnostic (firmware 1.3+)
+./monopink.sh nfc-send photo.jpg     # NFC upload test, the Pico plays the phone
 ./monopink.sh --sim ...              # any command, simulated hardware</pre>
       </div>
 

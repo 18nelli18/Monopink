@@ -307,6 +307,8 @@ def firmware_pages():
         if a >= L.IMG_REGION_START:
             continue
         pages[a] = bytes(img[a:a + L.PAGE_SIZE])
+    # start with a clean NFC receive state
+    pages[L.NFC_DESC_ADDR] = b"\xff" * L.PAGE_SIZE
     return pages
 
 
@@ -470,6 +472,100 @@ def tag_boot_test(env, cfg, rep, wait=None):
         if res["state"] is None or res["state"] < L.ST_REFRESH_DONE:
             raise OpError("boot.incomplete", state=f"0x{res['state'] or 0:02x}")
         return _check_refresh(res, rep, ok_key="boot.ok")
+    finally:
+        pr.close()
+
+
+# ====================================================================== NFC
+def _decode_nfc_diag(d):
+    b0, b38, b39, b3a = d[0x10:0x20], d[0x20:0x30], d[0x30:0x40], d[0x40:0x50]
+    regs = d[8:16]
+    return {
+        "answers": bool(d[0] & 1),
+        "variant": "2k" if d[0] & 2 else "1k",
+        "fd_chip_off": d[1],
+        "fd_chip_on": d[2],
+        "wake": {1: "fd", 2: "poll"}.get(d[4], "?"),
+        "uid": bytes(b0[0:7]).hex(),
+        "static_lock": bytes(b0[10:12]).hex(),
+        "cc": bytes(b0[12:16]).hex(),
+        "dynamic_lock": bytes(b38[8:11]).hex(),
+        "auth0": b38[15],
+        "access": b39[0],
+        "pt_i2c": b39[12],
+        "config": bytes(b3a[0:8]).hex(),
+        "nc_reg": regs[0],
+        "ns_reg": regs[6],
+        "ndef_start": bytes(d[0x50:0x90]).hex(),
+    }
+
+
+def nfc_info(env, cfg, rep):
+    rep.step("nfc.info.start")
+    pr = open_probe(env, cfg, rep)
+    try:
+        chip, info = _connect(pr, cfg, rep)
+        fw = None if info["locked"] else chip.firmware_info()
+        if not fw or not fw["installed"] or _version_tuple(fw["version"]) < (1, 3):
+            raise OpError("nfc.need_fw13")
+        try:
+            raw = chip.nfc_diag()
+        except TagError as e:
+            raise OpError(e.key, **e.kw)
+        d = _decode_nfc_diag(raw)
+        if not d["answers"]:
+            raise OpError("nfc.no_chip")
+        rep.ok("nfc.chip", variant=d["variant"], uid=d["uid"])
+        rep.info("nfc.details", cc=d["cc"], config=d["config"], auth0=d["auth0"],
+                 access=d["access"], lock=d["static_lock"] + "/" + d["dynamic_lock"])
+        rep.info("nfc.fd", off=d["fd_chip_off"], on=d["fd_chip_on"])
+        if d["auth0"] < 0xEB:
+            rep.warn("nfc.password")
+        if d["wake"] == "fd":
+            rep.ok("nfc.fd_wake")
+        else:
+            rep.warn("nfc.fd_polling")
+        d["raw"] = bytes(raw).hex()
+        return d
+    finally:
+        pr.close()
+
+
+def nfc_send(env, cfg, rep, pixels):
+    """Upload a picture through the NFC protocol, the Pico playing the phone."""
+    from . import nfc
+    stream, parts = nfc.encode_planes_pixels(pixels)
+    rep.step("nfc.send.start", size=len(stream), n=len(parts))
+    pr = open_probe(env, cfg, rep)
+    try:
+        chip, info = _connect(pr, cfg, rep)
+        fw = None if info["locked"] else chip.firmware_info()
+        if not fw or not fw["installed"] or _version_tuple(fw["version"]) < (1, 3):
+            raise OpError("nfc.need_fw13")
+
+        def on_state(state, elapsed):
+            rep.run_state(state, round(elapsed, 1))
+
+        last = None
+        for i, payload in enumerate(parts):
+            rep.check_cancel()
+            try:
+                res = chip.nfc_test_write(nfc.part_area(payload), on_state=on_state)
+            except TagError as e:
+                raise OpError(e.key, **e.kw)
+            st = nfc.parse_status(res["status"])
+            last = res
+            rep.progress(i + 1, len(parts))
+            if st is None or st["error"] != "ok":
+                raise OpError("nfc.part_refused", i=i + 1, err=(st or {}).get("error", "?"))
+            rep.info("nfc.part_ok", i=i + 1, n=len(parts), next=st["next"])
+        mb = last["mailbox"]
+        if last["result"] != 2:
+            raise OpError("nfc.not_complete")
+        from .image import pixels_to_planes
+        save_planes(*pixels_to_planes(pixels))
+        rep.ok("nfc.send.done", s=round((mb["refresh_ms"] or 0) / 1000, 1))
+        return {"stream": len(stream), "parts": len(parts), "mailbox": mb}
     finally:
         pr.close()
 

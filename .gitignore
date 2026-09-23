@@ -1,0 +1,8 @@
+.venv/
+data/
+__pycache__/
+*.pyc
+firmware/build/
+pico/build/
+dist/
+.DS_Store

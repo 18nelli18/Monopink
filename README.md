@@ -12,7 +12,9 @@ French) or from the **command line**:
 1. tell the app which Pico GPIOs you wired,
 2. one click flashes the probe firmware on the Pico,
 3. one click erases the locked store firmware and installs the MonopInk firmware,
-4. drop any image, tune the conversion, preview it, send it.
+4. drop any image, tune the conversion, preview it, send it,
+5. or send pictures **from an Android phone over NFC**, without the Pico — the
+   label's own NFC chip receives them, even on batteries ([docs/NFC.md](docs/NFC.md)).
 
 ![wiring](docs/img/wiring.svg)
 
@@ -59,7 +61,7 @@ python.org first, ticking *“Add python.exe to PATH”*).
 **Try it without hardware**: `./monopink.sh --sim` runs the whole workflow on a
 simulated Pico + label.
 
-Then follow the 6 steps in the sidebar of the web page.
+Then follow the steps in the sidebar of the web page.
 
 ## Wiring
 
@@ -113,7 +115,10 @@ stored in the Pico, nothing to recompile):
    shows the refresh. You can also download the preview, a complete `.hex`
    (firmware + picture, for any CC programmer), the raw planes, or an
    `images.c` for the angrymew firmware.
-6. **Tools & settings** — refresh again, **autonomous start test** (plain reset
+6. **NFC (phone)** — checks the label's NFC chip, tests an NFC upload with the
+   Pico playing the phone, and gives the link to the phone page (see
+   [Pictures from a phone](#pictures-from-a-phone-nfc)).
+7. **Tools & settings** — refresh again, **autonomous start test** (plain reset
    as on batteries, then checks that the label redrew its picture by itself),
    plain reset, flash dump, custom `.hex` firmware, serial port, language,
    **display calibration** (rotate 180° / mirror if the test card shows up the
@@ -124,7 +129,29 @@ progress bar and a *Cancel* button.
 
 When the refresh is finished the picture stays on the e-paper **without any
 power**: unplug the Pico. With batteries, the label redraws the picture at each
-power-up, then sleeps in PM3 (deepest sleep).
+power-up, then sleeps until a phone comes close (NFC).
+
+## Pictures from a phone (NFC)
+
+With the label firmware **1.3+**, an Android phone (Chrome) can replace the
+picture through the label's NFC chip — no Pico, no computer, label on batteries.
+
+1. **Publish the phone page once** — it must be served over `https://`. With
+   GitHub: push this folder to a repository, then *Settings → Pages → Deploy from
+   a branch → `main`, folder `/docs`*. The page is then at
+   `https://<user>.github.io/<repository>/nfc/`. Paste that address in the web
+   app (step *NFC (phone)*) to get a ready-made link for the phone.
+2. **Check the label** — step *NFC (phone)*: *Check the NFC chip*, optionally
+   *Test an NFC upload* (the Pico plays the phone), then *Phone mode* (or put the
+   batteries in).
+3. **On the phone** — open the page, pick a picture, adjust it (same settings as
+   on the computer), press *Send* and tap the phone on the label once per part
+   (1 tap for text/logos, 4–8 for dithered photos). The page guides every tap;
+   the label refreshes ~20 s after the last one.
+
+How it works, protocol, power use and limits: [docs/NFC.md](docs/NFC.md).
+**Status:** complete and tested in simulation (the real firmware code, compiled
+natively, driven by the phone page); **not yet validated on the real label**.
 
 ## Tested on real hardware
 
@@ -143,7 +170,7 @@ Label VUSION 2.6 BWR GL420 (CC2510F32, chip ID `0x8104`), Raspberry Pi Pico
 | Test card orientation and colours, custom landscape picture — checked by eye | ✔ no calibration needed |
 | Autonomous start (plain reset, as on batteries), then PM3 sleep, then reconnection | ✔ 8/8 with firmware 1.2 |
 
-Not tested on hardware: Pico 2 (RP2350), Windows, Linux, the single-GPIO DD mode,
+Not tested on hardware: the NFC upload (firmware 1.3, see above), Pico 2 (RP2350), Windows, Linux, the single-GPIO DD mode,
 and the mass erase of a truly locked chip (ours turned out to be already unlocked;
 the erase path is exercised by the simulator and follows CCLib).
 
@@ -173,11 +200,14 @@ to use the simulator, `--port /dev/cu.usbmodemXXXX` to force a port.
 ./monopink.sh flash-hex blink.hex        # any Intel HEX firmware (--erase if locked)
 ./monopink.sh dump flash.bin             # read the 32 KB flash (unlocked chip)
 ./monopink.sh export photo.jpg --png p.png --hex label.hex --bin planes.bin --c images.c
+./monopink.sh nfc-info                   # NFC chip diagnostic, wake-up mode on batteries
+./monopink.sh nfc-send photo.jpg         # NFC upload test, the Pico playing the phone
 ./monopink.sh web --http-port 8420 --no-browser
 ```
 
 Settings (pins, port, calibration, last conversion options) are stored in
-`data/config.json`.
+`data/config.json` (`--sim` uses `data/sim/`, so trying things never touches
+the real label's records).
 
 ## Troubleshooting
 
@@ -194,6 +224,10 @@ Settings (pins, port, calibration, last conversion options) are stored in
 | Chip reported *locked* by other tools | Right after entering debug mode the CC2510 reports `DEBUG_LOCKED` until the first debug instruction, even when it is not locked (measured). MonopInk tests the lock by executing an instruction; CCLib's `cc_info.py` does not, hence false alarms. |
 | Picture upside down / mirrored | Tools → Display calibration (rotate 180° / mirror), then send again. |
 | Speckled red | Use *Threshold* mode or lower the red sensitivity; thin red lines bleed on this panel. |
+| Phone page: *Web NFC is not available* | Use Chrome on Android, over `https://`, with NFC on. Not possible on iPhone or a computer. |
+| Phone page: *not a MonopInk label* | The label runs an older firmware: reinstall it (step *Label*, firmware 1.3+). |
+| Phone page: *has not taken the last part yet* | The label is not powered (batteries?) or polls every 2 s (`nfc-info` shows the wake-up mode): move away, wait, tap again. |
+| Phone page: *too complex* | More than 6 KB compressed: use *Threshold* / *Levels* or a simpler picture. |
 
 ## How it works (short version)
 
@@ -212,6 +246,8 @@ Settings (pins, port, calibration, last conversion options) are stored in
   picture has a fixed address, changing it only rewrites 11 flash pages — no
   compiler needed. The firmware reports its progress in RAM, which the app reads
   through the debug port to show the refresh live and diagnose the display.
+  Between refreshes it sleeps until a phone's NFC field wakes it up, then
+  receives a compressed picture through the NTAG chip ([docs/NFC.md](docs/NFC.md)).
 
 Details: [docs/TECHNICAL.md](docs/TECHNICAL.md). The original hacking log (in
 French) that this project packages: [docs/JOURNAL.fr.md](docs/JOURNAL.fr.md).
@@ -230,6 +266,8 @@ pico/build.sh                # needs arduino-cli + the earlephilhower rp2040 cor
 ```
 
 Tests (no hardware needed): `.venv/bin/python -m unittest discover -s tests -v`
+(the NFC tests also compile the label firmware natively with the system C
+compiler and check the phone page's JavaScript with Node, when available).
 
 ## Project layout
 
@@ -240,8 +278,9 @@ MonopInk/
 │   └── web/static/      web interface (HTML/CSS/JS, EN + FR, works offline)
 ├── pico/                probe firmware (Arduino sketch) + prebuilt .uf2 (RP2040, RP2350)
 ├── firmware/            label firmware (C / SDCC) + prebuilt .hex, blink example
-├── docs/                technical notes, original log, images
-├── tests/               automated tests (simulator, protocol, web API)
+├── docs/                technical notes, NFC, original log, images
+│   └── nfc/             phone page for NFC uploads (static, publish over https)
+├── tests/               automated tests (simulator, protocol, web API, NFC + native firmware)
 └── data/                created at run time: settings, last picture
 ```
 

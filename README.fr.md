@@ -12,7 +12,9 @@ Aucun composant n'est dessoudé. Tout se fait depuis une **interface web**
 1. tu indiques à l'appli quels GPIO du Pico tu as câblés,
 2. un clic flashe le firmware sonde sur le Pico,
 3. un clic efface le firmware verrouillé du magasin et installe le firmware MonopInk,
-4. tu déposes n'importe quelle image, tu ajustes la conversion, tu prévisualises, tu envoies.
+4. tu déposes n'importe quelle image, tu ajustes la conversion, tu prévisualises, tu envoies,
+5. ou tu envoies des images **depuis un téléphone Android en NFC**, sans le Pico —
+   la puce NFC de l'étiquette les reçoit, même sur piles ([docs/NFC.md](docs/NFC.md)).
 
 ![câblage](docs/img/wiring.svg)
 
@@ -60,7 +62,7 @@ python.org en cochant *« Add python.exe to PATH »*).
 **Essayer sans matériel** : `./monopink.sh --sim` déroule tout le parcours sur un
 Pico et une étiquette simulés.
 
-Ensuite, suis les 6 étapes de la barre latérale de la page web.
+Ensuite, suis les étapes de la barre latérale de la page web.
 
 ## Câblage
 
@@ -117,7 +119,10 @@ sont enregistrées dans le Pico, rien à recompiler) :
    (quelques secondes) et montre le rafraîchissement. Tu peux aussi télécharger
    l'aperçu, un `.hex` complet (firmware + image, pour n'importe quel programmateur
    CC), les plans bruts, ou un `images.c` pour le firmware angrymew.
-6. **Outils & réglages** — rafraîchir à nouveau, **test de démarrage autonome**
+6. **NFC (téléphone)** — vérifie la puce NFC de l'étiquette, teste un envoi NFC
+   avec le Pico dans le rôle du téléphone, et donne le lien vers la page
+   téléphone (voir [Images depuis un téléphone](#images-depuis-un-téléphone-nfc)).
+7. **Outils & réglages** — rafraîchir à nouveau, **test de démarrage autonome**
    (reset simple comme sur piles, puis vérification que l'étiquette a redessiné
    son image toute seule), reset simple, sauvegarde de la flash, firmware `.hex`
    personnalisé, port série, langue, **calibration de l'affichage** (rotation
@@ -129,7 +134,45 @@ barre de progression et un bouton *Annuler*.
 
 Une fois le rafraîchissement terminé, l'image reste sur l'e-paper **sans aucune
 alimentation** : débranche le Pico. Avec des piles, l'étiquette redessine l'image
-à chaque mise sous tension puis s'endort en PM3 (sommeil le plus profond).
+à chaque mise sous tension puis dort jusqu'à ce qu'un téléphone approche (NFC).
+
+## Images depuis un téléphone (NFC)
+
+Avec le firmware étiquette **1.3+**, un téléphone Android (Chrome) peut remplacer
+l'image par la puce NFC de l'étiquette — sans Pico, sans ordinateur, étiquette
+sur piles.
+
+1. **Publier la page téléphone (une fois)** — elle doit être servie en
+   `https://`. Avec GitHub : pousse ce dossier dans un dépôt, puis *Settings →
+   Pages → Deploy from a branch → `main`, dossier `/docs`*. La page est alors à
+   `https://<utilisateur>.github.io/<dépôt>/nfc/`. Colle cette adresse dans
+   l'appli web (étape *NFC (téléphone)*) pour obtenir un lien prêt pour le
+   téléphone (il transmet aussi la langue et la calibration).
+2. **Vérifier l'étiquette** — étape *NFC (téléphone)* : *Vérifier la puce NFC*,
+   éventuellement *Tester un envoi NFC* (le Pico joue le téléphone), puis *Mode
+   téléphone* (ou mets les piles).
+3. **Sur le téléphone** — ouvre la page, choisis une image, règle-la (mêmes
+   réglages que sur l'ordinateur), appuie sur *Envoyer* et pose le téléphone sur
+   l'étiquette une fois par morceau (1 tape pour du texte/un logo, 4 à 8 pour une
+   photo tramée). La page guide chaque tape ; l'étiquette se rafraîchit ~20 s
+   après la dernière.
+
+Fonctionnement, protocole, consommation et limites : [docs/NFC.md](docs/NFC.md)
+(en anglais). En bref :
+
+- une tape = le téléphone lit l'état de l'étiquette puis écrit le morceau
+  qu'elle attend (≤ 832 octets) ; l'étiquette le lit quand le téléphone
+  s'éloigne, le vérifie (CRC) et le range en flash ; au dernier morceau elle
+  décode l'image (compression dédiée, 0,3 à 6 Ko) et rafraîchit l'écran ;
+- une tape ratée, un doublon ou une coupure de piles sont rattrapés : l'état dit
+  toujours quel morceau envoyer ;
+- réveil : instantané (~1 µA en veille) si la ligne de détection de champ de la
+  puce NFC a un pull-up sur la carte, sinon l'étiquette interroge la puce toutes
+  les 2 s (~15 µA) — `nfc-info` indique le mode.
+
+**État :** complet et testé en simulation (le vrai code du firmware, compilé
+nativement, piloté par la page téléphone) ; **pas encore validé sur la vraie
+étiquette**.
 
 ## Testé sur le vrai matériel
 
@@ -148,7 +191,7 @@ alimentation** : débranche le Pico. Avec des piles, l'étiquette redessine l'im
 | Orientation et couleurs de la mire, image perso en paysage — vérifiées à l'œil | ✔ aucune calibration nécessaire |
 | Démarrage autonome (reset simple, comme sur piles), veille PM3, reconnexion | ✔ 8/8 avec le firmware 1.2 |
 
-Non testé sur le matériel : Pico 2 (RP2350), Windows, Linux, le mode DD sur un
+Non testé sur le matériel : l'envoi NFC (firmware 1.3, voir plus haut), Pico 2 (RP2350), Windows, Linux, le mode DD sur un
 seul GPIO, et l'effacement complet d'une puce réellement verrouillée (la nôtre
 s'est avérée déjà déverrouillée ; ce chemin est couvert par le simulateur et suit
 CCLib).
@@ -180,11 +223,14 @@ pour les messages en français, `--sim` pour le simulateur, `--port
 ./monopink.sh flash-hex blink.hex        # n'importe quel firmware Intel HEX (--erase si verrouillée)
 ./monopink.sh dump flash.bin             # lit les 32 Ko de flash (puce déverrouillée)
 ./monopink.sh export photo.jpg --png p.png --hex etiquette.hex --bin plans.bin --c images.c
+./monopink.sh nfc-info                   # diagnostic de la puce NFC, mode de réveil sur piles
+./monopink.sh nfc-send photo.jpg         # test d'envoi NFC, le Pico joue le téléphone
 ./monopink.sh web --http-port 8420 --no-browser
 ```
 
 Les réglages (broches, port, calibration, dernières options de conversion) sont
-enregistrés dans `data/config.json`.
+enregistrés dans `data/config.json` (`--sim` utilise `data/sim/` : les essais ne
+touchent jamais aux données de la vraie étiquette).
 
 À la question *« L'effacer maintenant ? [y/N] »*, réponds `y` (ou `o`) seul. Les
 touches tapées avant l'apparition de la question sont ignorées.
@@ -204,6 +250,10 @@ touches tapées avant l'apparition de la question sont ignorées.
 | Puce annoncée *verrouillée* par d'autres outils | Juste après l'entrée en mode debug, le CC2510 signale `DEBUG_LOCKED` jusqu'à la première instruction de debug, même s'il n'est pas verrouillé (mesuré). MonopInk teste le verrou en exécutant une instruction ; `cc_info.py` de CCLib non, d'où de fausses alertes — c'est probablement ce qui s'est passé dans le journal d'origine. |
 | Image à l'envers / en miroir | Outils → Calibration de l'affichage (rotation 180° / miroir), puis renvoie l'image. |
 | Rouge moucheté | Utilise le mode *Seuil* ou baisse la sensibilité au rouge ; les traits rouges fins bavent sur cette dalle. |
+| Page téléphone : *Web NFC n'est pas disponible* | Utilise Chrome sur Android, en `https://`, NFC activé. Impossible sur iPhone ou ordinateur. |
+| Page téléphone : *pas une étiquette MonopInk* | L'étiquette a un ancien firmware : réinstalle-le (étape *Étiquette*, firmware 1.3+). |
+| Page téléphone : *n'a pas encore pris le dernier morceau* | L'étiquette n'est pas alimentée (piles ?) ou interroge toutes les 2 s (`nfc-info` indique le mode de réveil) : éloigne, attends, retape. |
+| Page téléphone : *trop complexe* | Plus de 6 Ko compressés : utilise *Seuil* / *Niveaux* ou une image plus simple. |
 
 ## Comment ça marche (version courte)
 
@@ -223,7 +273,9 @@ touches tapées avant l'apparition de la question sont ignorées.
   le CC2510 en PM3. Comme l'image est à une adresse fixe, la changer ne réécrit
   que 11 pages de flash — aucun compilateur nécessaire. Le firmware publie sa
   progression en RAM ; l'appli la lit par le port de debug pour afficher le
-  rafraîchissement en direct et diagnostiquer l'écran.
+  rafraîchissement en direct et diagnostiquer l'écran. Entre deux
+  rafraîchissements il dort jusqu'à ce que le champ NFC d'un téléphone le
+  réveille, puis reçoit une image compressée par la puce NTAG ([docs/NFC.md](docs/NFC.md)).
 
 Détails : [docs/TECHNICAL.md](docs/TECHNICAL.md). Le journal de bidouille
 d'origine dont ce projet est l'aboutissement : [docs/JOURNAL.fr.md](docs/JOURNAL.fr.md).
@@ -245,6 +297,9 @@ pico/build.sh                # nécessite arduino-cli + le core rp2040 d'earleph
 ```
 
 Tests (sans matériel) : `.venv/bin/python -m unittest discover -s tests -v`
+(les tests NFC compilent aussi le firmware de l'étiquette en natif avec le
+compilateur C du système et vérifient le JavaScript de la page téléphone avec
+Node, s'ils sont disponibles).
 
 ## Organisation du projet
 
@@ -255,8 +310,9 @@ MonopInk/
 │   └── web/static/      interface web (HTML/CSS/JS, FR + EN, fonctionne hors ligne)
 ├── pico/                firmware sonde (sketch Arduino) + .uf2 prêts (RP2040, RP2350)
 ├── firmware/            firmware de l'étiquette (C / SDCC) + .hex prêt, exemple blink
-├── docs/                notes techniques, journal d'origine, images
-├── tests/               tests automatiques (simulateur, protocole, API web)
+├── docs/                notes techniques, NFC, journal d'origine, images
+│   └── nfc/             page téléphone pour l'envoi NFC (statique, à publier en https)
+├── tests/               tests automatiques (simulateur, protocole, API web, NFC + firmware natif)
 └── data/                créé à l'exécution : réglages, dernière image
 ```
 

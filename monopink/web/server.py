@@ -26,6 +26,8 @@ from ..i18n import t, norm_lang
 from ..pico import make_env, HEADER_GPIOS
 
 STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+# phone page for NFC uploads (also published over HTTPS, e.g. GitHub Pages)
+NFC_PAGE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "docs", "nfc")
 SOURCE_PATH = os.path.join(C.DATA_DIR, "source.png")
 MAX_UPLOAD = 30 * 1024 * 1024
 
@@ -156,6 +158,10 @@ class App:
         d = self.cfg().get("display", {})
         return conv.planes(d.get("rotate180", False), d.get("mirror", False))
 
+    def panel_pixels(self, conv):
+        d = self.cfg().get("display", {})
+        return conv.panel_pixels(d.get("rotate180", False), d.get("mirror", False))
+
 
 APP = None
 
@@ -212,6 +218,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._static("index.html")
             if path.startswith("/static/"):
                 return self._static(path[len("/static/"):])
+            if path == "/nfc":
+                return self._send(301, b"", "text/plain", {"Location": "/nfc/"})
+            if path.startswith("/nfc/"):
+                return self._static(path[len("/nfc/"):] or "index.html", NFC_PAGE)
             if path == "/api/state":
                 return self._send(200, self._state())
             if path == "/api/pico/status":
@@ -252,9 +262,9 @@ class Handler(BaseHTTPRequestHandler):
             traceback.print_exc()
             return self._error(500, str(e))
 
-    def _static(self, rel):
-        full = os.path.normpath(os.path.join(STATIC, rel))
-        if not full.startswith(STATIC) or not os.path.isfile(full):
+    def _static(self, rel, root=STATIC):
+        full = os.path.normpath(os.path.join(root, rel))
+        if not full.startswith(root + os.sep) or not os.path.isfile(full):
             return self._error(404, "not found")
         ctype = mimetypes.guess_type(full)[0] or "application/octet-stream"
         if ctype.startswith("text/") or ctype in ("application/javascript",):
@@ -409,6 +419,11 @@ class Handler(BaseHTTPRequestHandler):
         if "display" in body:
             changes["display"] = {k: bool(body["display"][k]) for k in ("rotate180", "mirror")
                                   if k in body["display"]}
+        if "nfc_url" in body:
+            url = str(body["nfc_url"] or "").strip()
+            if url and (not url.startswith("https://") or len(url) > 300 or any(c in url for c in " <>\"'")):
+                return self._error(400, t("nfc.url_invalid", lang))
+            changes["nfc_url"] = url
         cfg = C.update(changes)
         return self._send(200, {"ok": True, "config": cfg})
 
@@ -465,6 +480,16 @@ class Handler(BaseHTTPRequestHandler):
             if len(text) > 400_000:
                 return self._error(413, "file too large")
             func = lambda rep: ops.tag_flash_hex(env, cfg, rep, text, erase=erase)
+        elif op == "nfc_info":
+            func = lambda rep: ops.nfc_info(env, cfg, rep)
+        elif op == "nfc_send":
+            conv = APP.convert(args.get("params") or cfg.get("image") or {})
+            px = APP.panel_pixels(conv)
+
+            def func(rep):
+                res = ops.nfc_send(env, cfg, rep, px)
+                C.update({"label_orientation": conv.params.orientation})
+                return res
         elif op == "tag_run":
             func = lambda rep: ops.tag_run(env, cfg, rep)
         elif op == "tag_boottest":

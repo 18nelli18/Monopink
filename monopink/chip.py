@@ -292,6 +292,56 @@ class CC2510:
         result["elapsed"] = round(time.time() - t0, 1)
         return result
 
+    # ------------------------------------------------------------ NFC
+    def _run_until(self, states, timeout, on_state=None):
+        t0 = time.time()
+        last = None
+        mb = None
+        while time.time() - t0 < timeout:
+            self._cancel_point()
+            time.sleep(0.3)
+            self.p.halt()
+            mb = self._read_mailbox()
+            self.p.resume()
+            if mb[4] != last:
+                last = mb[4]
+                if on_state:
+                    on_state(last, time.time() - t0)
+            if mb[4] in states:
+                break
+        self.p.halt()
+        return mb
+
+    def nfc_diag(self):
+        """Dump the NTAG state as seen by the CC2510 (firmware >= 1.3)."""
+        self.p.enter()
+        self.p.write_xdata(L.MAILBOX_ADDR, L.MAILBOX_NFC_DIAG + bytes(L.MAILBOX_SIZE - 4))
+        self.p.resume()
+        mb = self._run_until((L.ST_NFC_DIAG_DONE,), 10)
+        if mb is None or mb[4] != L.ST_NFC_DIAG_DONE:
+            raise TagError("nfc.diag_failed")
+        return self.p.read_xdata(L.NFCDIAG_ADDR, L.NFCDIAG_SIZE)
+
+    def nfc_test_write(self, area, on_state=None, timeout=90):
+        """Play the phone: put an NDEF area in the NTAG, let the firmware
+        process it (and refresh the display if the picture is complete)."""
+        if len(area) > 872:
+            raise ValueError("NDEF area too large")
+        self.p.enter()
+        self.p.write_xdata(L.XRAM_BUF_B, area)
+        mb = bytearray(L.MAILBOX_HOLD.replace(b"HD", b"NW") + bytes(L.MAILBOX_SIZE - 4))
+        mb[12] = len(area) & 0xFF
+        mb[13] = len(area) >> 8
+        self.p.write_xdata(L.MAILBOX_ADDR, bytes(mb))
+        self.p.resume()
+        mb = self._run_until((L.ST_NFC_DONE,), timeout, on_state)
+        if mb is None or mb[4] != L.ST_NFC_DONE:
+            raise TagError("nfc.test_timeout")
+        status = self.p.read_xdata(L.XRAM_NFC_STATUS, 16)
+        info = self.p.read_xdata(L.XRAM_NFC_INFO, 16)
+        return {"result": mb[11], "status": bytes(status), "info": bytes(info),
+                "mailbox": parse_mailbox(mb)}
+
     def start_boot_test(self):
         """Plain reset (no debug mode), like a label on batteries.
 

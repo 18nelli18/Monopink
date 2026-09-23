@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f1efe8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
+<title>MonopInk NFC</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='5' width='26' height='22' rx='3' fill='%23f3f1ea' stroke='%231d1d1f' stroke-width='2'/%3E%3Crect x='7' y='9' width='11' height='14' fill='%231d1d1f'/%3E%3Crect x='20' y='9' width='5' height='14' fill='%23c3272e'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="bar">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="5" width="26" height="22" rx="3" class="lf"/><rect x="7" y="9" width="11" height="14" class="li"/><rect x="20" y="9" width="5" height="14" class="lr"/></svg>
+    <div><b>MonopInk</b><span data-i18n="tagline"></span></div>
+  </div>
+  <div class="seg lang"><button data-lang="en">EN</button><button data-lang="fr">FR</button></div>
+</header>
+
+<main>
+  <div class="note warn" id="noNfc" hidden>
+    <b data-i18n="nonfc.title"></b>
+    <p data-i18n-html="nonfc.text"></p>
+  </div>
+
+  <!-- 1. picture -->
+  <section class="card">
+    <h2><span class="n">1</span><span data-i18n="pick.title"></span></h2>
+    <label class="pick">
+      <input type="file" id="file" accept="image/*" hidden>
+      <img id="thumb" alt="" hidden>
+      <span class="pick-text"><b data-i18n="pick.choose"></b><small id="fileName" data-i18n="pick.sub"></small></span>
+    </label>
+    <button class="link" id="testCard" data-i18n="pick.testcard"></button>
+  </section>
+
+  <!-- 2. adjust + preview -->
+  <section class="card" id="adjustCard" hidden>
+    <h2><span class="n">2</span><span data-i18n="adj.title"></span></h2>
+    <div class="mock" id="mock"><div class="screen"><canvas id="preview"></canvas></div><div class="foot"></div></div>
+    <div class="meter" id="meter"></div>
+
+    <div class="field"><label data-i18n="adj.orientation"></label>
+      <div class="seg wide" data-param="orientation">
+        <button data-value="portrait" data-i18n="adj.portrait"></button><button data-value="landscape" data-i18n="adj.landscape"></button>
+      </div></div>
+    <div class="field"><label data-i18n="adj.fit"></label>
+      <div class="seg wide" data-param="fit">
+        <button data-value="cover" data-i18n="adj.cover"></button><button data-value="contain" data-i18n="adj.contain"></button><button data-value="stretch" data-i18n="adj.stretch"></button>
+      </div></div>
+    <div class="field"><label data-i18n="adj.mode"></label>
+      <div class="seg wide tall" data-param="mode">
+        <button data-value="threshold"><span data-i18n="adj.threshold"></span><small data-i18n="adj.threshold.sub"></small></button>
+        <button data-value="levels"><span data-i18n="adj.levels"></span><small data-i18n="adj.levels.sub"></small></button>
+        <button data-value="dither"><span data-i18n="adj.dither"></span><small data-i18n="adj.dither.sub"></small></button>
+      </div></div>
+    <details class="more">
+      <summary data-i18n="adj.more"></summary>
+      <label class="check"><input type="checkbox" data-param="use_red"><span data-i18n="adj.red"></span></label>
+      <div class="slider" data-show="use_red"><label><span data-i18n="adj.redsens"></span><output></output></label><input type="range" min="0" max="100" data-param="red_sensitivity"></div>
+      <div class="slider"><label><span data-i18n="adj.brightness"></span><output></output></label><input type="range" min="-100" max="100" data-param="brightness"></div>
+      <div class="slider"><label><span data-i18n="adj.contrast"></span><output></output></label><input type="range" min="-100" max="100" data-param="contrast"></div>
+      <div class="slider" data-show="levels"><label><span data-i18n="adj.black"></span><output></output></label><input type="range" min="0" max="255" data-param="black_level"></div>
+      <div class="slider" data-show="levels"><label><span data-i18n="adj.white"></span><output></output></label><input type="range" min="0" max="255" data-param="white_level"></div>
+      <label class="check"><input type="checkbox" data-param="invert"><span data-i18n="adj.invert"></span></label>
+      <label class="check"><input type="checkbox" data-param="sharp"><span data-i18n="adj.sharp"></span></label>
+      <label class="check" data-show="use_red"><input type="checkbox" data-param="fill_enclosed"><span data-i18n="adj.fill"></span></label>
+    </details>
+  </section>
+
+  <!-- 3. send -->
+  <section class="card" id="sendCard" hidden>
+    <h2><span class="n">3</span><span data-i18n="send.title"></span></h2>
+    <p class="muted" data-i18n="send.lead"></p>
+    <button class="btn primary big" id="send" data-i18n="send.go"></button>
+    <div class="session" id="session" hidden>
+      <div class="dots" id="dots"></div>
+      <div class="tap" id="tapArt" aria-hidden="true">
+        <svg viewBox="0 0 120 90"><rect x="8" y="24" width="72" height="50" rx="6" class="t-label"/><rect x="14" y="30" width="44" height="38" class="t-screen"/><rect x="62" y="30" width="12" height="38" class="t-red"/><rect x="56" y="6" width="44" height="78" rx="8" class="t-phone"/><path d="M104 30 q10 15 0 30 M110 24 q16 21 0 42" class="t-waves"/></svg>
+      </div>
+      <p class="say" id="say"></p>
+      <p class="muted small" id="say2"></p>
+      <button class="btn ghost" id="stop" data-i18n="send.stop"></button>
+    </div>
+  </section>
+
+  <section class="card compact">
+    <button class="btn ghost" id="readStatus" data-i18n="status.read"></button>
+    <div class="kv" id="statusBox" hidden></div>
+  </section>
+
+  <footer class="muted small">
+    <p data-i18n-html="foot.tips"></p>
+    <p><span data-i18n="foot.calib"></span>
+      <label class="check inline"><input type="checkbox" id="calRot"><span data-i18n="foot.rot"></span></label>
+      <label class="check inline"><input type="checkbox" id="calMirror"><span data-i18n="foot.mirror"></span></label></p>
+    <p>MonopInk · GPL-3.0</p>
+  </footer>
+</main>
+
+<div class="toast" id="toast" hidden></div>
+<script src="codec.js"></script>
+<script src="convert.js"></script>
+<script src="nfc.js"></script>
+</body>
+</html>

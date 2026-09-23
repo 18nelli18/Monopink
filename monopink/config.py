@@ -15,6 +15,7 @@ DEFAULTS = {
     "pins": DEFAULT_PINS,
     "display": {"rotate180": False, "mirror": False},
     "image": {},
+    "nfc_url": "",                # phone page (https), see docs/NFC.md
 }
 
 

@@ -227,22 +227,7 @@ class Converted:
         return px
 
     def planes(self, rotate180=False, mirror=False):
-        px = self.panel_pixels(rotate180, mirror)
-        bw = bytearray(L.PLANE_SIZE)
-        red = bytearray(L.PLANE_SIZE)
-        i = 0
-        for y in range(L.EPD_HEIGHT):
-            for xb in range(L.ROW_BYTES):
-                b_bw = 0
-                b_r = 0
-                for bit in range(8):
-                    v = px[y * L.EPD_WIDTH + xb * 8 + bit]
-                    b_bw = (b_bw << 1) | (0 if v == BLACK else 1)
-                    b_r = (b_r << 1) | (0 if v == RED else 1)
-                bw[i] = b_bw
-                red[i] = b_r
-                i += 1
-        return bytes(bw), bytes(red)
+        return pixels_to_planes(self.panel_pixels(rotate180, mirror))
 
     def preview(self, scale=3, frame=False):
         """PNG bytes of the design as it will look on the panel."""
@@ -263,6 +248,25 @@ def convert(img, params: ImageParams) -> Converted:
     if params.fill_enclosed and params.use_red:
         pix = _fill_enclosed(pix, img.width, img.height)
     return Converted(pix, img.size, params)
+
+
+def pixels_to_planes(px):
+    """Panel indices (152 x 296) -> (black/white plane, red plane)."""
+    bw = bytearray(L.PLANE_SIZE)
+    red = bytearray(L.PLANE_SIZE)
+    i = 0
+    for y in range(L.EPD_HEIGHT):
+        for xb in range(L.ROW_BYTES):
+            b_bw = 0
+            b_r = 0
+            for bit in range(8):
+                v = px[y * L.EPD_WIDTH + xb * 8 + bit]
+                b_bw = (b_bw << 1) | (0 if v == BLACK else 1)
+                b_r = (b_r << 1) | (0 if v == RED else 1)
+            bw[i] = b_bw
+            red[i] = b_r
+            i += 1
+    return bytes(bw), bytes(red)
 
 
 def planes_to_pixels(bw, red):

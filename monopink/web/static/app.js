@@ -28,7 +28,7 @@
     if (name.startsWith("GP")) GP_TO_PIN[+name.slice(2)] = +pin;
   }
   const RUN_STATES = [16, 48, 64, 80, 96, 112, 128];
-  const VIEWS = ["overview", "wiring", "pico", "label", "picture", "tools"];
+  const VIEWS = ["overview", "wiring", "pico", "label", "picture", "nfc", "tools"];
 
   const S = {
     lang: "en",
@@ -42,6 +42,7 @@
     params: { ...DEFAULT_PARAMS },
     busy: false,
     job: null,
+    nfc: null,
     previewSeq: 0,
   };
 
@@ -676,8 +677,35 @@
     paramControls();
     renderSource();
     renderTools();
+    renderNfc();
     renderChips();
     renderSteps();
+  }
+
+  // ================================================================ NFC
+  function nfcLink() {
+    const url = (S.state.config.nfc_url || "").trim();
+    if (!url) return "";
+    const d = S.state.config.display || {};
+    const q = new URLSearchParams({ lang: S.lang, rot: d.rotate180 ? 1 : 0, mirror: d.mirror ? 1 : 0 });
+    return url + (url.includes("?") ? "&" : "?") + q;
+  }
+
+  function renderNfc() {
+    const inp = $("#nfcUrl");
+    if (document.activeElement !== inp) inp.value = S.state.config.nfc_url || "";
+    const link = nfcLink();
+    $("#nfcOpen").hidden = !link;
+    if (link) $("#nfcOpen").href = link;
+    const d = S.nfc;
+    const box = $("#nfcResult");
+    box.hidden = !d;
+    if (!d) return;
+    const row = (k, v) => `<dt>${T(k)}</dt><dd>${esc(String(v))}</dd>`;
+    box.innerHTML = row("nf.r.chip", `NTAG I2C plus ${d.variant}`) + row("nf.r.uid", d.uid) +
+      row("nf.r.cc", d.cc) +
+      row("nf.r.prot", d.auth0 >= 0xEB ? T("nf.r.prot.none") : T("nf.r.prot.pwd", { p: d.auth0.toString(16) + "h" })) +
+      row("nf.r.wake", T(d.wake === "fd" ? "nf.r.wake.fd" : "nf.r.wake.poll"));
   }
 
   // ================================================================ events
@@ -828,6 +856,28 @@
       a.click();
       a.remove();
     });
+
+    // NFC
+    $("#nfcUrlSave").addEventListener("click", async () => {
+      const r = await api("/api/config", { nfc_url: $("#nfcUrl").value.trim() });
+      if (!r.ok) { toast(r.error, true); return; }
+      S.state.config = r.config;
+      renderNfc();
+      toast(T("nf.url.saved"));
+    });
+    $("#nfcInfo").addEventListener("click", () => startJob("nfc_info", {}, {
+      onDone: (snap) => { S.nfc = snap.status === "done" ? snap.result : null; renderNfc(); },
+    }));
+    $("#nfcSend").addEventListener("click", () => startJob("nfc_send", { params: S.params }, {
+      onDone: (snap) => {
+        if (snap.status === "done") {
+          toast(T("nf.sent"));
+          S.state.has_label_image = true;
+          refreshCurrent();
+        }
+      },
+    }));
+    $("#nfcArm").addEventListener("click", () => startJob("tag_reset"));
 
     // tools
     $("#toolRun").addEventListener("click", () => startJob("tag_run"));
