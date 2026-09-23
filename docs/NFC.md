@@ -1,7 +1,7 @@
 # MonopInk — pictures from a phone over NFC
 
 The GL420 label has an NFC chip (NXP **NTAG I2C plus**, NT3H2111/2211) wired to
-the CC2510. With the MonopInk label firmware **1.3+**, an Android phone can send
+the CC2510. With the MonopInk label firmware **1.4+**, an Android phone can send
 a new picture to the label, with no Pico and no computer: the label wakes up
 when the phone comes close, even on batteries, and goes back to sleep afterwards.
 
@@ -24,7 +24,7 @@ when the phone comes close, even on batteries, and goes back to sleep afterwards
 |---|---|
 | Phone | Android with NFC, **Chrome** (Web NFC exists only in Chrome for Android; not on iPhone, not on computers) |
 | Phone page | `docs/nfc/` served over **https://** (Web NFC refuses plain http pages) |
-| Label | MonopInk label firmware **1.3** or newer (install it from the web app, step *Label*) |
+| Label | MonopInk label firmware **1.4** or newer (install it from the web app, step *Label*); 1.3 could not unlock the store label's NFC memory |
 | Power | batteries in the label (or the Pico's 3.3 V) — the NFC chip can't run the CC2510 from the phone's field |
 
 ## 2. Publishing the phone page (HTTPS)
@@ -55,8 +55,8 @@ preview on the computer (conversion and preview work; sending needs a phone).
    until it vibrates, move it away, wait a second, tap again for the next part.
    The dots count the parts. The page tells you what to do at each step
    (re-tap, wait, errors).
-4. After the last part the label rebuilds the picture and refreshes its screen
-   (~20 s). A last tap confirms *Picture displayed ✓*.
+4. After the last part the label rebuilds the picture (~10 s, measured) and
+   refreshes its screen (~20 s). A last tap confirms *Picture displayed ✓*.
 
 Typical sizes: text/logo in *Threshold* 0.3–1 KB (**1 tap**), drawings 1–2 KB
 (1–3 taps), dithered photos 3–6 KB (4–8 taps). A tap carries up to 832 bytes;
@@ -93,6 +93,15 @@ part from another picture or a label that lost power are all handled.
 The NTAG user memory is a Type 2 Tag area: `03 <len> <NDEF message> FE`. The
 label formats the chip at boot if needed (capability container `E1 10 6D 00`,
 i.e. 872 bytes, static locks cleared) so that Android sees an NDEF tag.
+
+**Store labels are locked.** The GL420 leaves the factory with the dynamic lock
+bytes (page E2h) set to `FF 3F 7F`: every page from 10h on is read-only for
+phones, and this cannot be undone from the NFC side. A phone can then write only
+48 bytes (found on the real label: the phone's write stopped at page 10h). From
+the I2C side these bits can be cleared again (NT3H2111 datasheet §8.3.7), so
+firmware 1.4 checks them at every boot and every NFC session and clears them,
+leaving the rest of that block (AUTH0) unchanged. `nfc-info` shows the lock
+bytes and warns if they are set.
 
 **Part** — written by the phone: one MIME record, type `x/mpk`, payload =
 15-byte header + data (all little endian):
@@ -220,11 +229,18 @@ damaged part.
 
 ## 9. Status and limits
 
-- **Not yet validated on the real label** (the Pico was not connected while
-  this was developed): the I2C driver, the NTAG formatting, the flash
-  self-programming from the firmware, the decoder's speed on the 8051, both
-  wake-up modes and the phone taps. Start with `nfc-info`, then `nfc-send`
-  (both with the Pico), then *Phone mode* and a real phone.
+- **Validated on the real label** (GL420, firmware 1.3 then 1.4, the Pico playing
+  the phone with `nfc-send`, 1 part and 3 parts): the parts are written into the NTAG and read back over
+  I2C, stored in flash by the firmware, the stream CRC matches, the 8051 decoder
+  output is identical to the reference decoder, and the picture is displayed.
+  Decoding takes about 10 s at the default 13 MHz clock, then the ~20 s refresh.
+  Firmware 1.3 reported the result in mailbox byte 11, which the refresh then
+  overwrote (the host now trusts the status block; fixed in 1.4).
+  `nfc-info` on that label: NTAG I2C plus 1k, FD pulled up (instant wake-up
+  mode), factory dynamic locks `FF 3F 7F` — cleared by firmware 1.4 (reads
+  `000000` after a normal boot).
+- **Not tested yet on hardware:** the wake-up on batteries (FD or polling mode)
+  and taps from a real phone.
 - Web NFC: Chrome for Android only; the page must be in the foreground with the
   screen on.
 - Polling mode (no FD pull-up): wait 2–3 s between taps; the page says so if

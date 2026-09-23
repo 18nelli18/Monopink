@@ -18,7 +18,7 @@
 #define _LAYOUT_H_
 
 #define FW_VERSION_MAJOR   1
-#define FW_VERSION_MINOR   3
+#define FW_VERSION_MINOR   4
 #define LAYOUT_VERSION     1
 
 #define FW_INFO_ADDR       0x4FF0
@@ -68,7 +68,7 @@
 #define MB_T_PWRON_H       13
 #define MB_BOOTS           14   /* boot counter (RAM survives a reset) */
 #define MB_RESET_CAUSE     15   /* SLEEP register at boot (bits 4:3 = cause) */
-#define MB_NFC_RESULT      11   /* "MPNW" test: nfc_session() result          */
+#define MB_NFC_RESULT      11   /* "MPNW" test: nfc_session() result, written after the refresh (shares MB_BUSY_AT_ON) */
 
 /* MB_STATE values */
 #define ST_BOOT            0x10

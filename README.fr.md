@@ -138,7 +138,7 @@ alimentation** : débranche le Pico. Avec des piles, l'étiquette redessine l'im
 
 ## Images depuis un téléphone (NFC)
 
-Avec le firmware étiquette **1.3+**, un téléphone Android (Chrome) peut remplacer
+Avec le firmware étiquette **1.4+**, un téléphone Android (Chrome) peut remplacer
 l'image par la puce NFC de l'étiquette — sans Pico, sans ordinateur, étiquette
 sur piles.
 
@@ -154,8 +154,8 @@ sur piles.
 3. **Sur le téléphone** — ouvre la page, choisis une image, règle-la (mêmes
    réglages que sur l'ordinateur), appuie sur *Envoyer* et pose le téléphone sur
    l'étiquette une fois par morceau (1 tape pour du texte/un logo, 4 à 8 pour une
-   photo tramée). La page guide chaque tape ; l'étiquette se rafraîchit ~20 s
-   après la dernière.
+   photo tramée). La page guide chaque tape ; l'étiquette affiche la nouvelle image
+   ~30 s après la dernière (~10 s de décodage + ~20 s de rafraîchissement).
 
 Fonctionnement, protocole, consommation et limites : [docs/NFC.md](docs/NFC.md)
 (en anglais). En bref :
@@ -170,9 +170,9 @@ Fonctionnement, protocole, consommation et limites : [docs/NFC.md](docs/NFC.md)
   puce NFC a un pull-up sur la carte, sinon l'étiquette interroge la puce toutes
   les 2 s (~15 µA) — `nfc-info` indique le mode.
 
-**État :** complet et testé en simulation (le vrai code du firmware, compilé
-nativement, piloté par la page téléphone) ; **pas encore validé sur la vraie
-étiquette**.
+**État :** le chemin d'envoi marche sur la vraie étiquette (testé avec le Pico
+dans le rôle du téléphone) ; le réveil sur piles et les tapes d'un vrai
+téléphone ne sont pas encore testés.
 
 ## Testé sur le vrai matériel
 
@@ -190,8 +190,10 @@ nativement, piloté par la page téléphone) ; **pas encore validé sur la vraie
 | Rafraîchissement suivi en direct (3 couleurs) | ✔ 19,6–19,7 s |
 | Orientation et couleurs de la mire, image perso en paysage — vérifiées à l'œil | ✔ aucune calibration nécessaire |
 | Démarrage autonome (reset simple, comme sur piles), veille PM3, reconnexion | ✔ 8/8 avec le firmware 1.2 |
+| Envoi NFC, le Pico jouant le téléphone : morceaux écrits dans la puce NFC et relus en I2C, rangés en flash par le firmware, décodés par le 8051 (identique au décodeur de référence), affichés — 1 morceau et 3 morceaux (logo de 1,9 Ko) | ✔ décodage ≈ 10 s + rafraîchissement 19,6 s |
+| Puce NFC : verrous d'usine (`FF 3F 7F`, pages à partir de 10h en lecture seule pour les téléphones) enlevés par le firmware 1.4 ; pull-up présent sur la détection de champ → réveil instantané | ✔ |
 
-Non testé sur le matériel : l'envoi NFC (firmware 1.3, voir plus haut), Pico 2 (RP2350), Windows, Linux, le mode DD sur un
+Pas encore testé sur le matériel : le réveil NFC sur piles et les tapes d'un vrai téléphone, Pico 2 (RP2350), Windows, Linux, le mode DD sur un
 seul GPIO, et l'effacement complet d'une puce réellement verrouillée (la nôtre
 s'est avérée déjà déverrouillée ; ce chemin est couvert par le simulateur et suit
 CCLib).
@@ -251,7 +253,7 @@ touches tapées avant l'apparition de la question sont ignorées.
 | Image à l'envers / en miroir | Outils → Calibration de l'affichage (rotation 180° / miroir), puis renvoie l'image. |
 | Rouge moucheté | Utilise le mode *Seuil* ou baisse la sensibilité au rouge ; les traits rouges fins bavent sur cette dalle. |
 | Page téléphone : *Web NFC n'est pas disponible* | Utilise Chrome sur Android, en `https://`, NFC activé. Impossible sur iPhone ou ordinateur. |
-| Page téléphone : *pas une étiquette MonopInk* | L'étiquette a un ancien firmware : réinstalle-le (étape *Étiquette*, firmware 1.3+). |
+| Page téléphone : *pas une étiquette MonopInk* | L'étiquette a un ancien firmware : réinstalle-le (étape *Étiquette*, firmware 1.4+). |
 | Page téléphone : *n'a pas encore pris le dernier morceau* | L'étiquette n'est pas alimentée (piles ?) ou interroge toutes les 2 s (`nfc-info` indique le mode de réveil) : éloigne, attends, retape. |
 | Page téléphone : *trop complexe* | Plus de 6 Ko compressés : utilise *Seuil* / *Niveaux* ou une image plus simple. |
 

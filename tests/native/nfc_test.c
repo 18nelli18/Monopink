@@ -7,6 +7,9 @@
  *   length 0xFFFF (no bytes): batteries removed - the RAM is lost
  *   length 0xFFFE (no bytes): polling-mode check, prints "poll <0|1>"
  *   length | 0x8000: the phone writes the area but the label does not run
+ *   length 0xFFFD (no bytes): factory state of a store label (dynamic lock
+ *                             bytes FF 3F 7F), then a reboot
+ *   length 0xFFFC (no bytes): prints "blk38 <16 hex>" (lock bytes, AUTH0)
  * For each area: prints "result <r> status <16 hex bytes> area <32 hex>".
  * At the end writes the 11264-byte picture region (0x5000-0x7BFF) and
  * prints the flash page write counts on stderr.
@@ -78,6 +81,20 @@ int main(int argc, char **argv)
             memset(mock_xram, 0, sizeof(mock_xram));
             nfc_prepare();                 /* what main() does at boot */
             printf("reboot\n");
+            continue;
+        }
+        if (n == 0xFFFD) {
+            static const uint8_t factory[16] = {0xA5, 0xA5, 0xA5, 0xA5, 0x5A, 0x5A, 0x5A, 0x5A,
+                                                0xFF, 0x3F, 0x7F, 0x00, 0x00, 0x00, 0x00, 0xFF};
+            memcpy(ntag_mem[0x38], factory, 16);
+            nfc_prepare();
+            printf("factory\n");
+            continue;
+        }
+        if (n == 0xFFFC) {
+            printf("blk38 ");
+            for (i = 0; i < 16; i++) printf("%02x", ntag_mem[0x38][i]);
+            printf("\n");
             continue;
         }
         if (n == 0xFFFE) {

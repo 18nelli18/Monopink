@@ -521,6 +521,8 @@ def nfc_info(env, cfg, rep):
         rep.info("nfc.fd", off=d["fd_chip_off"], on=d["fd_chip_on"])
         if d["auth0"] < 0xEB:
             rep.warn("nfc.password")
+        if d["dynamic_lock"] != "000000" or d["static_lock"] != "0000":
+            rep.warn("nfc.locked", lock=d["static_lock"] + "/" + d["dynamic_lock"])
         if d["wake"] == "fd":
             rep.ok("nfc.fd_wake")
         else:
@@ -535,6 +537,7 @@ def nfc_send(env, cfg, rep, pixels):
     """Upload a picture through the NFC protocol, the Pico playing the phone."""
     from . import nfc
     stream, parts = nfc.encode_planes_pixels(pixels)
+    image_id = parts[0][3] | (parts[0][4] << 8)
     rep.step("nfc.send.start", size=len(stream), n=len(parts))
     pr = open_probe(env, cfg, rep)
     try:
@@ -559,12 +562,14 @@ def nfc_send(env, cfg, rep, pixels):
             if st is None or st["error"] != "ok":
                 raise OpError("nfc.part_refused", i=i + 1, err=(st or {}).get("error", "?"))
             rep.info("nfc.part_ok", i=i + 1, n=len(parts), next=st["next"])
-        mb = last["mailbox"]
-        if last["result"] != 2:
+        # The label's status is the reference: firmware 1.3 also put the result
+        # in mailbox byte 11, which the display refresh then overwrote.
+        st = nfc.parse_status(last["status"])
+        if not st or st["state"] != "complete" or st["image_id"] != image_id:
             raise OpError("nfc.not_complete")
         from .image import pixels_to_planes
         save_planes(*pixels_to_planes(pixels))
-        rep.ok("nfc.send.done", s=round((mb["refresh_ms"] or 0) / 1000, 1))
+        mb = _check_refresh(dict(last["mailbox"]), rep, ok_key="nfc.send.done")
         return {"stream": len(stream), "parts": len(parts), "mailbox": mb}
     finally:
         pr.close()

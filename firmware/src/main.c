@@ -248,9 +248,9 @@ void main(void)
     }
     if (mode == MODE_NFCTEST) {
         r = nfc_test_phone_write(len);
-        mailbox[MB_NFC_RESULT] = r;
         if (r == NFC_IMAGE)
             show_image();
+        mailbox[MB_NFC_RESULT] = r;      /* after show_image(): same byte as MB_BUSY_AT_ON */
         hold(ST_NFC_DONE);
     }
 

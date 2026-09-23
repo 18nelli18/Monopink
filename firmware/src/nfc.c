@@ -127,11 +127,31 @@ static void desc_save(void)
 }
 
 /* -------------------------------------------------------------- NTAG format */
+/* Dynamic lock bytes (NFC page E2h = I2C block 38h, bytes 8-10).  Store
+ * labels leave the factory with them set to FF 3F 7F: every page from 10h
+ * on is read-only for phones (irreversible from NFC), so a phone could only
+ * write 48 bytes.  From I2C they can be cleared (NT3H2111 datasheet 8.3.7).
+ * Bytes 12-15 (AUTH0 page) are written back unchanged. */
+static uint8_t unlock_dynamic(void)
+{
+    XDATA uint8_t *b = work;
+    if (!ntag_read_block(0x38, b))
+        return 0;
+    if (b[8] == 0 && b[9] == 0 && b[10] == 0)
+        return 1;
+    b[8] = 0;
+    b[9] = 0;
+    b[10] = 0;
+    return ntag_write_block(0x38, b);
+}
+
 static uint8_t ensure_format(void)
 {
     XDATA uint8_t *b = work;
     XLOCAL uint8_t i;
 
+    if (!unlock_dynamic())
+        return 0;
     if (!ntag_read_block(0x00, b))
         return 0;
     if (b[12] == 0xE1 && b[13] == 0x10 && b[14] == 0x6D && b[15] == 0x00 &&

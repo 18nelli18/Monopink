@@ -103,7 +103,7 @@ class TestProtocol(unittest.TestCase):
         m.prepare()
         st = nfc.status_from_area(bytes(m.area))
         self.assertEqual(st["state"], "ready")
-        self.assertEqual(st["firmware"], "1.3")
+        self.assertEqual(st["firmware"], "1.4")
         self.assertEqual(st["max_part"], nfc.MAX_PART_DATA)
         self.assertEqual(st["max_stream"], nfc.STAGING_SIZE)
         # exactly what the firmware writes into NTAG blocks 1-2
@@ -143,6 +143,10 @@ class TestFirmwareNative(unittest.TestCase):
                 blob += struct.pack("<H", 0xFFFF)
             elif it == "poll":
                 blob += struct.pack("<H", 0xFFFE)
+            elif it == "factory":
+                blob += struct.pack("<H", 0xFFFD)
+            elif it == "blk38":
+                blob += struct.pack("<H", 0xFFFC)
             elif isinstance(it, tuple):
                 blob += struct.pack("<H", 0x8000 | len(it[1])) + it[1]
             else:
@@ -160,8 +164,8 @@ class TestFirmwareNative(unittest.TestCase):
             w = line.split()
             if w[0] == "result":
                 steps.append((int(w[1]), bytes.fromhex(w[3]), bytes.fromhex(w[5])))
-            elif w[0] == "poll":
-                steps.append(("poll", int(w[1])))
+            elif w[0] in ("poll", "blk38"):
+                steps.append((w[0], int(w[1]) if w[0] == "poll" else bytes.fromhex(w[1])))
             else:
                 steps.append((w[0],))
         with open(planes, "rb") as f:
@@ -295,6 +299,18 @@ class TestFirmwareNative(unittest.TestCase):
         # tag wiped by another app -> 1 (the label rewrites its status)
         self.assertEqual(polls, [0, 1, 0, 1])
 
+    def test_factory_locks_are_cleared(self):
+        """Store labels come with the NFC pages from 10h locked for phones
+        (dynamic lock bytes FF 3F 7F, measured): the firmware clears them over
+        I2C and leaves the rest of the block (AUTH0...) untouched."""
+        p = self.parts(SIMPLE, 0x1111)
+        _, steps, _, _ = self.run_fw(["blk38", "factory", "blk38", nfc.part_area(p[0]), "blk38"])
+        blocks = [s[1] for s in steps if s[0] == "blk38"]
+        self.assertEqual(blocks[0], bytes(16))                       # prepare() at start: nothing to do
+        self.assertEqual(blocks[1], bytes([0xA5] * 4 + [0x5A] * 4 + [0, 0, 0, 0, 0, 0, 0, 0xFF]))
+        self.assertEqual(blocks[2], blocks[1])
+        self.assertEqual([s[0] for s in steps if s[0] not in ("blk38", "factory")], [nfclabel.IMAGE])
+
     def test_c_decoder_matches_python(self):
         for conv in (SIMPLE, BIG):
             stream = codec.encode(conv.panel_pixels())
@@ -403,6 +419,25 @@ class TestSimNfc(unittest.TestCase):
         self.assertEqual(sim.world().chip.displayed, conv.planes())
         st = nfc.parse_status(sim.world().chip.nfc.status())
         self.assertEqual(st["state"], "complete")
+
+    def test_send_with_firmware_13_result_byte(self):
+        """Firmware 1.3 let the display refresh overwrite the MPNW result byte
+        (found on the real label): the host must trust the NFC status."""
+        ops.tag_install(self.env, self.cfg, self.rep, erase=True, run=False)
+        sim.world().chip.nfc_legacy_result = True
+        conv = convert(test_pattern(), ImageParams(mode="threshold", fit="stretch"))
+        res = ops.nfc_send(self.env, self.cfg, self.rep, conv.panel_pixels())
+        self.assertEqual(res["parts"], 1)
+        self.assertEqual(sim.world().chip.xdata[L.MAILBOX_ADDR + 11], 1)   # overwritten, as measured
+        self.assertEqual(sim.world().chip.displayed, conv.planes())
+        self.assertIn(("ok", "nfc.send.done"), self.rep.events)
+
+    def test_info_reports_factory_locks(self):
+        ops.tag_install(self.env, self.cfg, self.rep, erase=True, run=False)
+        sim.world().chip.nfc_dyn_lock = bytes([0xFF, 0x3F, 0x7F])     # as read on the real label
+        d = ops.nfc_info(self.env, self.cfg, self.rep)
+        self.assertEqual(d["dynamic_lock"], "ff3f7f")
+        self.assertIn(("warn", "nfc.locked"), self.rep.events)
 
     def test_info_reports_polling_mode(self):
         ops.tag_install(self.env, self.cfg, self.rep, erase=True, run=False)

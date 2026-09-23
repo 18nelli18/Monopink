@@ -133,7 +133,7 @@ power-up, then sleeps until a phone comes close (NFC).
 
 ## Pictures from a phone (NFC)
 
-With the label firmware **1.3+**, an Android phone (Chrome) can replace the
+With the label firmware **1.4+**, an Android phone (Chrome) can replace the
 picture through the label's NFC chip — no Pico, no computer, label on batteries.
 
 1. **Publish the phone page once** — it must be served over `https://`. With
@@ -147,11 +147,12 @@ picture through the label's NFC chip — no Pico, no computer, label on batterie
 3. **On the phone** — open the page, pick a picture, adjust it (same settings as
    on the computer), press *Send* and tap the phone on the label once per part
    (1 tap for text/logos, 4–8 for dithered photos). The page guides every tap;
-   the label refreshes ~20 s after the last one.
+   the label shows the new picture ~30 s after the last one
+   (~10 s of decoding + the ~20 s refresh).
 
 How it works, protocol, power use and limits: [docs/NFC.md](docs/NFC.md).
-**Status:** complete and tested in simulation (the real firmware code, compiled
-natively, driven by the phone page); **not yet validated on the real label**.
+**Status:** the upload path works on the real label (tested with the Pico playing
+the phone); the wake-up on batteries and taps from a real phone are not tested yet.
 
 ## Tested on real hardware
 
@@ -169,8 +170,10 @@ Label VUSION 2.6 BWR GL420 (CC2510F32, chip ID `0x8104`), Raspberry Pi Pico
 | Display refresh followed live (3-colour) | ✔ 19.6–19.7 s |
 | Test card orientation and colours, custom landscape picture — checked by eye | ✔ no calibration needed |
 | Autonomous start (plain reset, as on batteries), then PM3 sleep, then reconnection | ✔ 8/8 with firmware 1.2 |
+| NFC upload, the Pico playing the phone: parts written into the NFC chip and read back over I2C, stored in flash by the firmware, decoded on the 8051 (identical to the reference decoder), displayed — 1 part and 3 parts (1.9 KB logo) | ✔ decoding ≈ 10 s + refresh 19.6 s |
+| NFC chip: factory locks (`FF 3F 7F`, pages from 10h read-only for phones) cleared by firmware 1.4; field-detect pull-up present → instant wake-up | ✔ |
 
-Not tested on hardware: the NFC upload (firmware 1.3, see above), Pico 2 (RP2350), Windows, Linux, the single-GPIO DD mode,
+Not tested on hardware yet: the NFC wake-up on batteries and taps from a real phone, Pico 2 (RP2350), Windows, Linux, the single-GPIO DD mode,
 and the mass erase of a truly locked chip (ours turned out to be already unlocked;
 the erase path is exercised by the simulator and follows CCLib).
 
@@ -225,7 +228,7 @@ the real label's records).
 | Picture upside down / mirrored | Tools → Display calibration (rotate 180° / mirror), then send again. |
 | Speckled red | Use *Threshold* mode or lower the red sensitivity; thin red lines bleed on this panel. |
 | Phone page: *Web NFC is not available* | Use Chrome on Android, over `https://`, with NFC on. Not possible on iPhone or a computer. |
-| Phone page: *not a MonopInk label* | The label runs an older firmware: reinstall it (step *Label*, firmware 1.3+). |
+| Phone page: *not a MonopInk label* | The label runs an older firmware: reinstall it (step *Label*, firmware 1.4+). |
 | Phone page: *has not taken the last part yet* | The label is not powered (batteries?) or polls every 2 s (`nfc-info` shows the wake-up mode): move away, wait, tap again. |
 | Phone page: *too complex* | More than 6 KB compressed: use *Threshold* / *Levels* or a simpler picture. |
 

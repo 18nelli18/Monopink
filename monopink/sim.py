@@ -30,6 +30,8 @@ class SimChip:
         self.nfc = LabelModel()     # the NTAG + firmware NFC protocol
         self.nfc_fd_pullup = True   # board pull-up on FD (wake-up mode 1)
         self.nfc_result = 0
+        self.nfc_legacy_result = False  # firmware 1.3: the refresh overwrote the result byte
+        self.nfc_dyn_lock = bytes(3)    # FF 3F 7F on a store label, cleared by firmware 1.4
         self.power_up()
         self.reset()
 
@@ -94,6 +96,10 @@ class SimChip:
         mb[base + 4] = st
         mb[base + 5] = 0
         mb[base + 10] = 0x10
+        if st >= L.ST_EPD_READY:
+            mb[base + 11] = 1                 # BUSY level before power-on (MB_BUSY_AT_ON)
+            if st == L.ST_NFC_DONE and not self.nfc_legacy_result:
+                mb[base + 11] = self.nfc_result   # 1.4+: result written after the refresh
         if st >= L.ST_REFRESH_DONE:
             ms = int(REFRESH_SECONDS * 1000) + 120
             mb[base + 6], mb[base + 7] = ms & 0xFF, ms >> 8
@@ -138,7 +144,7 @@ class SimChip:
         d[8:16] = bytes([0x01, 0x00, 0x00, 0x48, 0x08, 0x01, 0x00, 0x00])   # session regs
         d[0x10:0x20] = bytes([0x04, 0xA1, 0xB2, 0xC3, 0xD4, 0xE5, 0xF6, 0x80,
                               0x00, 0x00, 0x00, 0x00, 0xE1, 0x10, 0x6D, 0x00])
-        d[0x20:0x30] = bytes(8) + bytes([0, 0, 0, 0, 0, 0, 0, 0xFF])       # dyn. lock, AUTH0
+        d[0x20:0x30] = bytes(8) + self.nfc_dyn_lock + bytes([0, 0, 0, 0, 0xFF])   # dyn. lock, AUTH0
         d[0x30:0x40] = bytes([0x00, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0, 0x07, 0, 0, 0])
         d[0x40:0x50] = bytes([0x01, 0x00, 0xF8, 0x48, 0x08, 0x01, 0x00, 0x00]) + bytes(8)
         self.nfc.prepare()

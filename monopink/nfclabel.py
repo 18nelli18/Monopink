@@ -15,7 +15,7 @@ NOTHING, PART_OK, IMAGE, FAILED = range(4)
 
 
 class LabelModel:
-    def __init__(self, fw_version=0x13):
+    def __init__(self, fw_version=0x14):
         self.fw_version = fw_version
         self.flash_desc = None          # copy written when a transfer ends
         self.ram_desc = None            # kept while sleeping, lost on power loss

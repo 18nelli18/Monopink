@@ -154,7 +154,7 @@ Flash layout (also in `firmware/src/layout.h` and `monopink/layout.py`):
 
 | Address | Content |
 |---|---|
-| `0x0000–0x2FFF` | code (~10.4 KB used in 1.3; the build fails above `0x3000`) |
+| `0x0000–0x2FFF` | code (~10.5 KB used in 1.4; the build fails above `0x3000`) |
 | `0x3000–0x33FF` | NFC receive state (written once per picture received over NFC) |
 | `0x3400–0x4BFF` | NFC staging area for the compressed stream (6 KB) |
 | `0x4FF0–0x4FFF` | info block: `MONOPINK`, version major/minor, layout version, width, height |
@@ -170,7 +170,7 @@ low, 100 ms; SPI on, CS/DC high, hardware reset, wait BUSY; booster soft-start
 `06 17 17 17`, power on `04` (wait BUSY, ~50 ms), panel setting `00 0F 0D` (KWR
 mode), resolution `61 98 01 28`, VCOM/data interval `50 77`, planes `10` + `13`,
 refresh `12` (wait BUSY, ~20 s), power off `02`, deep sleep `07 A5`, back to the
-held-off state, NFC/SPI-flash supply off. Firmware 1.3 then formats the NFC
+held-off state, NFC/SPI-flash supply off. Firmware 1.3+ then formats the NFC
 chip if needed, publishes its status record, and sleeps until a phone comes
 (PM3 woken by the NFC field-detect line, or PM2 with a 2 s sleep timer when that
 line has no pull-up); see [NFC.md](NFC.md). Up to 1.2 the chip stayed in PM3

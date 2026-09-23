@@ -166,6 +166,8 @@ MSG = {
                     "Réveil NFC : instantané (la ligne de détection de champ a un pull-up sur la carte) - veille ~1 µA."),
     "nfc.fd_polling": ("The field-detect line has no pull-up with the chip off: on batteries the label checks the NFC chip every 2 s instead (sleep ~15 µA, wait 2-3 s between taps).",
                        "La ligne de détection de champ n'a pas de pull-up puce éteinte : sur piles l'étiquette interroge la puce NFC toutes les 2 s à la place (veille ~15 µA, attendre 2-3 s entre les tapes)."),
+    "nfc.locked": ("NFC memory locked for phones (locks {lock}, factory setting of store labels): a phone could only write 48 bytes. Firmware 1.4+ clears these locks by itself as soon as the label starts normally (Phone mode) or receives a picture.",
+                   "Mémoire NFC verrouillée pour les téléphones (verrous {lock}, réglage d'usine des étiquettes de magasin) : un téléphone ne pourrait écrire que 48 octets. Le firmware 1.4+ enlève ces verrous tout seul dès que l'étiquette démarre normalement (Mode téléphone) ou reçoit une image."),
     "nfc.url_invalid": ("The phone page address must start with https:// (Web NFC only works on secure pages).",
                         "L'adresse de la page téléphone doit commencer par https:// (Web NFC ne marche que sur des pages sécurisées)."),
     "nfc.send.start": ("NFC upload test: {size} bytes compressed, {n} part(s) (the Pico plays the phone)",
